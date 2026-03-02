@@ -38,8 +38,32 @@ public class Dragon implements Comparable<Dragon> {
         return name;
     }
 
+    public Coordinates getCoordinates() {
+        return coordinates;
+    }
+
+    public java.time.LocalDateTime getCreationDate() {
+        return creationDate;
+    }
+
+    public int getAge() {
+        return age;
+    }
+
+    public long getWeight() {
+        return weight;
+    }
+
+    public boolean isSpeaking() {
+        return speaking;
+    }
+
     public DragonType getType() {
         return type;
+    }
+
+    public DragonHead getHead() {
+        return head;
     }
 
     @Override
