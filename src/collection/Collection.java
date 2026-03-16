@@ -5,6 +5,7 @@ import java.util.Set;
 import java.util.Collections;
 import dragon.Dragon;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 public class Collection implements Interaction {
     public Collection() {
@@ -72,6 +73,12 @@ public class Collection implements Interaction {
         return Collections.unmodifiableSet(output);
     }
 
+    public Stream<Dragon> getStream()
+    {
+        return buffer.stream();
+    }
+
+    @Override
     public Set<Dragon> getBuffer() {
         return Collections.unmodifiableSet(buffer);
     }

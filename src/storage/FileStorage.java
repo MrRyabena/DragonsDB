@@ -3,11 +3,10 @@ package storage;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
-import dragon.Dragon;
-import dragon.DragonHead;
-import dragon.DragonType;
-import core.Coordinates;
 
+import dragon.Dragon;
+
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.FileInputStream;
 import java.io.FileWriter;
@@ -17,20 +16,20 @@ import java.lang.reflect.Type;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
+import java.util.stream.Stream;
+import java.io.InputStream;
+import java.io.OutputStream;
 
 /**
- * Хранилище коллекции Dragon в JSON-файле.
- * Использует библиотеку Gson; объем кода заметно меньше
- * по сравнению с ручным парсингом, при этом формат
- * остается стандартным и расширяемым.
- * Метаданные коллекции (время создания/изменения) не
- * сериализуются, поскольку легко читаются из файловой
+ * Хранилище коллекции Dragon в JSON-файле. Использует библиотеку Gson; объем кода заметно меньше по
+ * сравнению с ручным парсингом, при этом формат остается стандартным и расширяемым. Метаданные
+ * коллекции (время создания/изменения) не сериализуются, поскольку легко читаются из файловой
  * системы через Files.getLastModifiedTime(...).
  */
 public class FileStorage implements Storage {
     private final Path filename;
 
-    /* Gson и тип для десериализации */
+    /* Gson and type for (de)serialization */
     private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
     private final Type collectionType = new TypeToken<Set<Dragon>>() {}.getType();
 
@@ -38,21 +37,30 @@ public class FileStorage implements Storage {
         this.filename = filename;
     }
 
+    // @Override
+    // public void save(collection.Collection collection) throws IOException {
+    //     try (BufferedWriter writer = new BufferedWriter(new FileWriter(filename.toFile()))) {
+    //         writer.write(gson.toJson(collection.getBuffer(), collectionType));
+    //     }
+    // }
+
     @Override
-    public void save(collection.Collection collection) throws IOException {
+    public void save(InputStream stream) throws IOException {
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(filename.toFile()))) {
-            writer.write(gson.toJson(collection.getBuffer(), collectionType));
+            stream.forEachOrdered();
         }
     }
 
     @Override
-    public collection.Collection load() throws IOException {
+    public OutputStream load() throws IOException {
         if (!Files.exists(filename)) {
-            return new collection.Collection();
+            return Stream.empty();
         }
-        try (InputStreamReader reader = new InputStreamReader(new FileInputStream(filename.toFile()))) {
-            Set<Dragon> buffer = gson.fromJson(reader, collectionType);
-            return new collection.Collection(buffer);
+
+        try (var reader =
+                new BufferedReader(new InputStreamReader(new FileInputStream(filename.toFile())))) {
+
+            return reader.lines();
         }
     }
 }

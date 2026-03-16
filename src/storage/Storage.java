@@ -1,11 +1,12 @@
 package storage;
 
-import dragon.Dragon;
 import java.io.IOException;
-import java.util.HashSet;
+import java.io.InputStream;
+import java.io.OutputStream;
 
 public interface Storage {
-    void save(collection.Collection collection) throws IOException;
+    // void save(collection.Collection collection) throws IOException;
+    void save(InputStream stream) throws IOException;
 
-    collection.Collection load() throws IOException;
+    OutputStream load() throws IOException;
 }
