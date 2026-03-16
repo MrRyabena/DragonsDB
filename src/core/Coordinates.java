@@ -14,7 +14,7 @@ public class Coordinates {
         return y;
     }
 
-    public void setXY(Float x, Float y) throws BadDataException, NullPointerException {
+    public final void setXY(Float x, Float y) throws BadDataException, NullPointerException {
         if (x == null || y == null) throw new NullPointerException();
         if (x <= -359) throw new BadDataException("Value 'x' must be greater than -359");
         if (y > 603) throw new BadDataException("Value 'y' must be less than 603");
