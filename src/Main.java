@@ -1,10 +1,10 @@
+import java.nio.file.InvalidPathException;
+
 import core.Coordinates;
-
-import dragon.*;
-
+import dragon.Dragon;
+import dragon.DragonHead;
+import dragon.DragonType;
 import storage.FileStorage;
-
-import java.util.HashSet;
 
 public class Main {
 
@@ -28,11 +28,22 @@ public class Main {
                         DragonType.FIRE,
                         new DragonHead(2.0f, 5.0f)));
 
-        var storage = new FileStorage(java.nio.file.FileSystems.getDefault().getPath(System.getenv("STORAGE_PATH")));
         try {
-            storage.save(collection);
-        } catch (Exception e) {
+            var env = System.getenv("STORAGE_PATH");
+            System.err.println(env);
+            var storage =
+                    new FileStorage(
+                            java.nio.file.FileSystems.getDefault()
+                                    .getPath(env));
+            try {
+                storage.save(collection.getStream());
+            } catch (Exception e) {
+                e.printStackTrace();
+                // TODO
+            }
+        } catch (InvalidPathException e) {
             e.printStackTrace();
+
         }
     }
 }
