@@ -1,5 +1,9 @@
 package dragon;
-public enum DragonType {
+
+/**
+ * Represents the different types of dragons in the system.
+ */
+public enum DragonType implements java.io.Serializable{
     WATER,
     UNDERGROUND,
     AIR,

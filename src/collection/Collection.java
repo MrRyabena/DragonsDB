@@ -1,12 +1,19 @@
 package collection;
 
 import java.util.HashSet;
+import java.util.Set;
+import java.util.Collections;
 import dragon.Dragon;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 public class Collection implements Interaction {
     public Collection() {
         this.buffer = new HashSet<>();
+    }
+
+    public Collection(Set<Dragon> buffer) {
+        this.buffer = new HashSet<>(buffer);
     }
 
     @Override
@@ -57,13 +64,23 @@ public class Collection implements Interaction {
     }
 
     @Override
-    public HashSet<Dragon> filterStartsWithName(String sub_name) {
+    public Set<Dragon> filterStartsWithName(String sub_name) {
         var output = new HashSet<Dragon>();
         for (var x : buffer)
             if (x.getName().startsWith(sub_name))
                 output.add(x);
 
-        return output;
+        return Collections.unmodifiableSet(output);
+    }
+
+    public Stream<Dragon> getStream()
+    {
+        return buffer.stream();
+    }
+
+    @Override
+    public Set<Dragon> getBuffer() {
+        return Collections.unmodifiableSet(buffer);
     }
 
     private HashSet<Dragon> buffer;

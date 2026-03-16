@@ -1,7 +1,7 @@
 package collection;
 
 import dragon.Dragon;
-import java.util.HashSet;
+import java.util.Set;
 
 /**
  * help : вывести справку по доступным командам
@@ -46,5 +46,7 @@ public interface Interaction {
 
     int countGreaterThanType(dragon.DragonType type);
 
-    HashSet<Dragon> filterStartsWithName(String sub_name);
+    Set<Dragon> filterStartsWithName(String sub_name);
+
+    Set<Dragon> getBuffer();
 }

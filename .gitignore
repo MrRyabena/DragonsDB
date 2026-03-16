@@ -10,6 +10,12 @@
 # Mobile Tools for Java (J2ME)
 .mtj.tmp/
 
+# Data
+*data.json
+
+# Maven
+*dependency-reduced-pom.xml
+
 # Package Files #
 *.jar
 *.war
