@@ -76,7 +76,7 @@ public class UI {
                         ui.out
                                 .write(Integer
                                         .valueOf(ui.collection.countIf(x -> x.getType() == command.type()))
-                                        .toString());
+                                        .toString() + "\n");
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
@@ -88,7 +88,7 @@ public class UI {
                                 Integer.valueOf(
                                         ui.collection
                                                 .countIf(x -> x.getType().compareTo(command.type()) > 0))
-                                        .toString());
+                                        .toString() + "\n");
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
@@ -137,7 +137,7 @@ public class UI {
         executes.put(Commands.HISTORY.getCode(), (command, ui) -> {
             ui.history.stream().forEach(e -> {
                 try {
-                    ui.out.write(e.command().toString());
+                    ui.out.write(e.command().getText());
                     ui.out.write("\n");
                 } catch (IOException exception) {
                     exception.printStackTrace();
