@@ -14,26 +14,26 @@ public class StringView implements View {
 
         stream.forEach(dragon -> {
             // Root-level fields
-            appendField(sb, "id", String.valueOf(dragon.getId()), 0);
-            appendField(sb, "name", dragon.getName(), 0);
-            appendField(sb, "creationDate", String.valueOf(dragon.getCreationDate()), 0);
-            appendField(sb, "age", String.valueOf(dragon.getAge()), 0);
-            appendField(sb, "weight", String.valueOf(dragon.getWeight()), 0);
-            appendField(sb, "speaking", String.valueOf(dragon.isSpeaking()), 0);
+            appendField(sb, "id:           ", String.valueOf(dragon.getId()), 0);
+            appendField(sb, "name:         ", dragon.getName(), 0);
+            appendField(sb, "creationDate: ", String.valueOf(dragon.getCreationDate()), 0);
+            appendField(sb, "age:          ", String.valueOf(dragon.getAge()), 0);
+            appendField(sb, "weight:       ", String.valueOf(dragon.getWeight()), 0);
+            appendField(sb, "speaking:     ", String.valueOf(dragon.isSpeaking()), 0);
 
             // Nested fields
-            appendField(sb, "coordinates", null, 0);
+            appendField(sb, "coordinates:  ", null, 0);
             if (dragon.getCoordinates() != null) {
-                appendField(sb, "x", String.valueOf(dragon.getCoordinates().getX()), 1);
-                appendField(sb, "y", String.valueOf(dragon.getCoordinates().getY()), 1);
+                appendField(sb, "x:            ", String.valueOf(dragon.getCoordinates().getX()), 1);
+                appendField(sb, "y:            ", String.valueOf(dragon.getCoordinates().getY()), 1);
             }
 
-            appendField(sb, "type", dragon.getType() == null ? "null" : dragon.getType().name(), 0);
+            appendField(sb, "type:           ", dragon.getType() == null ? "null" : dragon.getType().name(), 0);
 
-            appendField(sb, "head", null, 0);
+            appendField(sb, "head:", null, 0);
             if (dragon.getHead() != null) {
-                appendField(sb, "size", String.valueOf(dragon.getHead().getSize()), 1);
-                appendField(sb, "toothCount", String.valueOf(dragon.getHead().getToothCount()), 1);
+                appendField(sb, "size:         ", String.valueOf(dragon.getHead().getSize()), 1);
+                appendField(sb, "toothCount:   ", String.valueOf(dragon.getHead().getToothCount()), 1);
             }
 
             // Separator between dragons
