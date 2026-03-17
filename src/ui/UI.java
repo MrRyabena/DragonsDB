@@ -13,6 +13,47 @@ import dragon.view.View;
 import storage.Storage;
 
 public class UI {
+
+    public UI(collection.API collection, Storage storage, OutputStreamWriter out, View storageView, View outView) {
+        this.collection = collection;
+        this.storage = storage;
+        this.out = out;
+
+        this.storageView = storageView;
+        this.outView = outView;
+    }
+
+    public UI(collection.API collection, Storage storage, OutputStreamWriter out) {
+        this(collection, storage, out, new JsonView(), new StringView());
+    }
+
+    public void execute(Command command) {
+        var execute = executes.get(command.command().getCode());
+        execute.execute(command, this);
+        addToHistory(command);
+    }
+
+    private void addToHistory(Command command) {
+        if (history.size() == 8) {
+            history.removeFirst();
+        }
+        history.addLast(command);
+        try {
+            out.flush();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private collection.API collection;
+    private Storage storage;
+    private OutputStreamWriter out;
+
+    private View storageView;
+    private View outView;
+
+    private final Deque<Command> history = new ArrayDeque<>(8);
+
     private static final HashMap<Integer, Executable> executes;
 
     static {
@@ -77,11 +118,13 @@ public class UI {
             var str = new StringBuilder();
             str.append("Collection type: HashSet<Dragon>\n");
             str.append("Date created: ");
-            str.append(ui.storage.getDateCreated().toString());
+            var date = ui.storage.getDateCreated();
+            str.append(date != null ? date.toString() : "null");
             str.append("\nDate modified: ");
-            str.append(ui.storage.getDateModified().toString());
+            var dateModified = ui.storage.getDateModified();
+            str.append(dateModified != null ? dateModified.toString() : "null");
             str.append("\nNumber of elements: ");
-            str.append(ui.collection.countIf(null));
+            str.append(ui.collection.countIf(e -> true));
             str.append("\n");
 
             try {
@@ -94,49 +137,14 @@ public class UI {
         executes.put(Commands.HISTORY.getCode(), (command, ui) -> {
             ui.history.stream().forEach(e -> {
                 try {
-                    ui.out.write(e.toString());
+                    ui.out.write(e.command().toString());
                     ui.out.write("\n");
-                } catch (IOException e) {
-                    e.printStackTrace();
+                } catch (IOException exception) {
+                    exception.printStackTrace();
                 }
             });
         });
 
     }
-
-    public UI(collection.API collection, Storage storage, OutputStreamWriter out, View storageView, View outView) {
-        this.collection = collection;
-        this.storage = storage;
-        this.out = out;
-
-        this.storageView = storageView;
-        this.outView = outView;
-    }
-
-    public UI(collection.API collection, Storage storage, OutputStreamWriter out) {
-        this(collection, storage, out, new JsonView(), new StringView());
-    }
-
-    public void execute(Command command) {
-        var execute = executes.get(command.command().getCode());
-        execute.execute(command, this);
-        addToHistory(command);
-    }
-
-    private void addToHistory(Command command) {
-        if (history.size() == 8) {
-            history.removeFirst();
-        }
-        history.addLast(command);
-    }
-
-    private collection.API collection;
-    private Storage storage;
-    private OutputStreamWriter out;
-
-    private View storageView;
-    private View outView;
-
-    private final Deque<Command> history = new ArrayDeque<>(8);
 
 }
