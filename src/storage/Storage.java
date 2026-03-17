@@ -1,12 +1,15 @@
 package storage;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Date;
 
 public interface Storage {
-    // void save(collection.Collection collection) throws IOException;
-    void save(InputStream stream) throws IOException;
+    void save(InputStream stream);
 
-    OutputStream load() throws IOException;
+    OutputStream load();
+
+    Date getDateCreated();
+
+    Date getDateModified();
 }
