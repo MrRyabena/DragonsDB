@@ -63,6 +63,7 @@ public class TextUIHandler implements Runnable {
     public void run() {
         try {
             while (true) {
+                printPromptIfInteractive();
                 var line = readLineFromCurrentInput();
                 if (line == null) {
                     if (!closeCurrentScriptIfAny()) {
@@ -91,6 +92,12 @@ public class TextUIHandler implements Runnable {
     private final HashMap<String, Consumer<String>> commandHandlers;
 
     private static final int MAX_SCRIPT_DEPTH = 16;
+
+    private void printPromptIfInteractive() {
+        if (readers.size() == 1) {
+            System.out.print("> ");
+        }
+    }
 
     private String readLineFromCurrentInput() throws IOException {
         return readers.peek().readLine();
@@ -209,9 +216,16 @@ public class TextUIHandler implements Runnable {
             return;
         }
 
+        var raw = args.trim();
+        raw = stripMatchingQuotes(raw);
+
         Path path;
         try {
-            path = Paths.get(args.trim()).toAbsolutePath().normalize();
+            var p = Paths.get(raw);
+            if (!p.isAbsolute()) {
+                p = getScriptBaseDir().resolve(p);
+            }
+            path = p.toAbsolutePath().normalize();
         } catch (Exception e) {
             throw new IllegalArgumentException("Invalid script file path.");
         }
@@ -232,6 +246,29 @@ public class TextUIHandler implements Runnable {
         } catch (IOException e) {
             throw new IllegalArgumentException("Failed to open script: " + path);
         }
+    }
+
+    private Path getScriptBaseDir() {
+        if (!openScripts.isEmpty()) {
+            var current = openScripts.peek();
+            var parent = current != null ? current.getParent() : null;
+            if (parent != null) {
+                return parent;
+            }
+        }
+        return Paths.get("").toAbsolutePath();
+    }
+
+    private String stripMatchingQuotes(String s) {
+        if (s == null) return null;
+        if (s.length() >= 2) {
+            var first = s.charAt(0);
+            var last = s.charAt(s.length() - 1);
+            if ((first == '"' && last == '"') || (first == '\'' && last == '\'')) {
+                return s.substring(1, s.length() - 1).trim();
+            }
+        }
+        return s;
     }
 
     private void printHelp() {
