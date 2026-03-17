@@ -31,6 +31,9 @@ public class DragonHead implements java.io.Serializable {
         return toothCount;
     }
 
+    /** The size of the dragon head. */
     private float size;
+
+    /** The number of teeth in the dragon head. */
     private float toothCount;
 }

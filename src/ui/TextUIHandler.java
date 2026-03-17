@@ -14,36 +14,20 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.function.Consumer;
 
-/*
-help : вывести справку по доступным командам
-info : вывести в стандартный поток вывода информацию о коллекции (тип, дата инициализации, количество элементов и т.д.)
-show : вывести в стандартный поток вывода все элементы коллекции в строковом представлении
-add {element} : добавить новый элемент в коллекцию
-update id {element} : обновить значение элемента коллекции, id которого равен заданному
-remove_by_id id : удалить элемент из коллекции по его id
-clear : очистить коллекцию
-save : сохранить коллекцию в файл
-execute_script file_name : считать и исполнить скрипт из указанного файла. В скрипте содержатся команды в таком же виде, в котором их вводит пользователь в интерактивном режиме.
-exit : завершить программу (без сохранения в файл)
-remove_greater {element} : удалить из коллекции все элементы, превышающие заданный
-remove_lower {element} : удалить из коллекции все элементы, меньшие, чем заданный
-history : вывести последние 8 команд (без их аргументов)
-count_by_type type : вывести количество элементов, значение поля type которых равно заданному
-count_greater_than_type type : вывести количество элементов, значение поля type которых больше заданного
-filter_starts_with_name name : вывести элементы, значение поля name которых начинается с заданной подстроки
-
-Формат ввода команд:
-
-Все аргументы команды, являющиеся стандартными типами данных (примитивные типы, классы-оболочки, String, классы для хранения дат), должны вводиться в той же строке, что и имя команды.
-Все составные типы данных (объекты классов, хранящиеся в коллекции) должны вводиться по одному полю в строку.
-При вводе составных типов данных пользователю должно показываться приглашение к вводу, содержащее имя поля (например, "Введите дату рождения:")
-Если поле является enum'ом, то вводится имя одной из его констант (при этом список констант должен быть предварительно выведен).
-При некорректном пользовательском вводе (введена строка, не являющаяся именем константы в enum'е; введена строка вместо числа; введённое число не входит в указанные границы и т.п.) должно быть показано сообщение об ошибке и предложено повторить ввод поля.
-Для ввода значений null использовать пустую строку.
-Поля с комментарием "Значение этого поля должно генерироваться автоматически" не должны вводиться пользователем вручную при добавлении.
+/**
+ * Interactive text UI handler.
+ *
+ * <p>Reads commands from stdin (or from script files via {@code execute_script}) and dispatches them
+ * to {@link UI}. Supports a bounded script recursion depth and basic input validation for building
+ * {@link dragon.Dragon} objects.
  */
-
 public class TextUIHandler implements Runnable {
+    /**
+     * Creates the handler bound to a {@link UI} instance.
+     *
+     * @param ui UI facade used to execute commands
+     * @throws NullPointerException if ui is null
+     */
     public TextUIHandler(UI ui) {
         this.ui = Objects.requireNonNull(ui, "ui");
         this.readers = new ArrayDeque<>();
@@ -59,6 +43,12 @@ public class TextUIHandler implements Runnable {
         registerHandlers();
     }
 
+    /**
+     * Main interactive loop.
+     *
+     * <p>Reads lines from the current input source, supports returning from scripts, and executes
+     * parsed commands until input is exhausted.
+     */
     @Override
     public void run() {
         try {
@@ -85,24 +75,48 @@ public class TextUIHandler implements Runnable {
 
     }
 
+    /** UI facade used to execute parsed commands. */
     private UI ui;
+
+    /** Primary reader for interactive stdin. */
     private BufferedReader in;
+
+    /** Stack of active readers (stdin + nested script readers). */
     private final Deque<BufferedReader> readers;
+
+    /** Stack of script paths currently being executed (for recursion detection). */
     private final Deque<Path> openScripts;
+
+    /** Command dispatcher mapping from command text to handler. */
     private final HashMap<String, Consumer<String>> commandHandlers;
 
+    /** Maximum allowed nested script execution depth. */
     private static final int MAX_SCRIPT_DEPTH = 16;
 
+    /**
+     * Prints the prompt only when running in interactive mode (stdin is the only source).
+     */
     private void printPromptIfInteractive() {
         if (readers.size() == 1) {
             System.out.print("> ");
         }
     }
 
+    /**
+     * Reads a single line from the current input source.
+     *
+     * @return next line, or null on EOF
+     * @throws IOException if reading fails
+     */
     private String readLineFromCurrentInput() throws IOException {
         return readers.peek().readLine();
     }
 
+    /**
+     * Closes current script reader (if any) and returns to the previous input source.
+     *
+     * @return true if a script reader was closed, false if currently in interactive mode
+     */
     private boolean closeCurrentScriptIfAny() {
         if (readers.size() <= 1) {
             return false;
@@ -121,6 +135,11 @@ public class TextUIHandler implements Runnable {
         return true;
     }
 
+    /**
+     * Parses and dispatches a command line to its handler.
+     *
+     * @param line raw input line
+     */
     private void dispatchLine(String line) {
         var parts = line.split("\\s+", 2);
         var cmd = parts[0].toLowerCase(Locale.ROOT);
@@ -139,6 +158,9 @@ public class TextUIHandler implements Runnable {
         }
     }
 
+    /**
+     * Registers all supported command handlers.
+     */
     private void registerHandlers() {
         commandHandlers.put(Commands.HELP.getText(), args -> printHelp());
         commandHandlers.put(Commands.EXIT.getText(), args -> System.exit(0));
@@ -206,6 +228,12 @@ public class TextUIHandler implements Runnable {
         });
     }
 
+    /**
+     * Handles {@code execute_script} command by pushing a new reader onto the stack.
+     *
+     * @param args path to the script file (may be quoted)
+     * @throws IllegalArgumentException if the path is invalid, unreadable, or recursion is detected
+     */
     private void handleExecuteScript(String args) {
         if (args == null || args.isBlank()) {
             throw new IllegalArgumentException("You must provide a script file name.");
@@ -248,6 +276,13 @@ public class TextUIHandler implements Runnable {
         }
     }
 
+    /**
+     * Returns a base directory for resolving relative script paths.
+     *
+     * <p>If scripts are nested, relative paths are resolved against the directory of the current script.
+     *
+     * @return base directory path
+     */
     private Path getScriptBaseDir() {
         if (!openScripts.isEmpty()) {
             var current = openScripts.peek();
@@ -259,6 +294,12 @@ public class TextUIHandler implements Runnable {
         return Paths.get("").toAbsolutePath();
     }
 
+    /**
+     * Removes matching leading and trailing quotes (single or double) from a string.
+     *
+     * @param s input string
+     * @return unquoted string
+     */
     private String stripMatchingQuotes(String s) {
         if (s == null) return null;
         if (s.length() >= 2) {
@@ -271,6 +312,9 @@ public class TextUIHandler implements Runnable {
         return s;
     }
 
+    /**
+     * Prints available command names.
+     */
     private void printHelp() {
         System.out.println("Available commands:");
         for (var c : Commands.values()) {
@@ -278,6 +322,14 @@ public class TextUIHandler implements Runnable {
         }
     }
 
+    /**
+     * Parses a required long value.
+     *
+     * @param s raw string
+     * @param argName argument name for error messages
+     * @return parsed long
+     * @throws IllegalArgumentException if missing or invalid
+     */
     private long parseLongRequired(String s, String argName) {
         if (s == null || s.isBlank()) {
             throw new IllegalArgumentException("You must provide " + argName + ".");
@@ -289,6 +341,13 @@ public class TextUIHandler implements Runnable {
         }
     }
 
+    /**
+     * Parses a required {@link dragon.DragonType} value.
+     *
+     * @param s raw string
+     * @return parsed type
+     * @throws IllegalArgumentException if missing or invalid
+     */
     private dragon.DragonType parseDragonTypeRequired(String s) {
         if (s == null || s.isBlank()) {
             throw new IllegalArgumentException("You must provide type (one of: WATER, UNDERGROUND, AIR, FIRE).");
@@ -300,6 +359,12 @@ public class TextUIHandler implements Runnable {
         }
     }
 
+    /**
+     * Reads an optional {@link dragon.DragonType} from input. Empty line is treated as null.
+     *
+     * @return parsed type or null
+     * @throws IOException on input error
+     */
     private dragon.DragonType readDragonTypeNullable() throws IOException {
         while (true) {
             System.out.print("Enter type (WATER/UNDERGROUND/AIR/FIRE) or empty line for null: ");
@@ -319,6 +384,13 @@ public class TextUIHandler implements Runnable {
         }
     }
 
+    /**
+     * Reads a non-empty string from input.
+     *
+     * @param prompt prompt to display
+     * @return non-empty user input
+     * @throws IOException on input error
+     */
     private String readNonEmptyString(String prompt) throws IOException {
         while (true) {
             System.out.print(prompt);
@@ -334,6 +406,13 @@ public class TextUIHandler implements Runnable {
         }
     }
 
+    /**
+     * Reads a float from input.
+     *
+     * @param prompt prompt to display
+     * @return parsed float value
+     * @throws IOException on input error
+     */
     private float readFloat(String prompt) throws IOException {
         while (true) {
             System.out.print(prompt);
@@ -350,6 +429,13 @@ public class TextUIHandler implements Runnable {
         }
     }
 
+    /**
+     * Reads a positive integer from input.
+     *
+     * @param prompt prompt to display
+     * @return parsed integer greater than 0
+     * @throws IOException on input error
+     */
     private int readIntPositive(String prompt) throws IOException {
         while (true) {
             System.out.print(prompt);
@@ -371,6 +457,13 @@ public class TextUIHandler implements Runnable {
         }
     }
 
+    /**
+     * Reads a positive long from input.
+     *
+     * @param prompt prompt to display
+     * @return parsed long greater than 0
+     * @throws IOException on input error
+     */
     private long readLongPositive(String prompt) throws IOException {
         while (true) {
             System.out.print(prompt);
@@ -392,6 +485,12 @@ public class TextUIHandler implements Runnable {
         }
     }
 
+    /**
+     * Reads a {@link dragon.Dragon} from input by prompting for its fields.
+     *
+     * @return constructed dragon
+     * @throws IllegalStateException on I/O error
+     */
     private dragon.Dragon readDragon() {
         try {
             var name = readNonEmptyString("Enter name: ");
@@ -422,6 +521,14 @@ public class TextUIHandler implements Runnable {
         }
     }
 
+    /**
+     * Creates a temporary dragon and overwrites its id using reflection.
+     *
+     * <p>Used for commands that operate by id without requiring full entity input.
+     *
+     * @param id target id
+     * @return dragon instance with forced id
+     */
     private dragon.Dragon dragonWithIdOnly(long id) {
         try {
             var d = new dragon.Dragon(
@@ -438,6 +545,13 @@ public class TextUIHandler implements Runnable {
         }
     }
 
+    /**
+     * Sets the {@code id} field of a dragon instance via reflection.
+     *
+     * @param d dragon instance
+     * @param id id to assign
+     * @throws IllegalStateException if reflection fails
+     */
     private void forceSetDragonId(dragon.Dragon d, long id) {
         try {
             var f = dragon.Dragon.class.getDeclaredField("id");

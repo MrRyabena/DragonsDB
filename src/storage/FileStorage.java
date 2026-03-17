@@ -15,20 +15,27 @@ import java.nio.file.attribute.FileTime;
 import java.util.Date;
 
 /**
- * Хранилище коллекции Dragon в JSON-файле. Использует библиотеку Gson; объем
- * кода заметно меньше по
- * сравнению с ручным парсингом, при этом формат остается стандартным и
- * расширяемым. Метаданные
- * коллекции (время создания/изменения) не сериализуются, поскольку легко
- * читаются из файловой
- * системы через Files.getLastModifiedTime(...).
+ * File-based {@link Storage} implementation.
+ *
+ * <p>Stores the serialized collection (as bytes) in a single file. Metadata such as creation and
+ * modification time is obtained from the file system rather than being serialized.
  */
 public class FileStorage implements Storage {
 
+    /**
+     * Creates a file storage bound to the specified path.
+     *
+     * @param filename file path to read from and write to
+     */
     public FileStorage(Path filename) {
         this.filename = filename;
     }
 
+    /**
+     * Writes the provided stream contents to the file.
+     *
+     * @param stream data to save
+     */
     @Override
     public void save(InputStream stream) {
         try (var reader = new InputStreamReader(stream, core.Defaults.CHARSET);
@@ -39,6 +46,11 @@ public class FileStorage implements Storage {
         }
     }
 
+    /**
+     * Loads the file contents into a {@link ByteArrayOutputStream}.
+     *
+     * @return output stream containing file bytes
+     */
     @Override
     public OutputStream load() {
 
@@ -47,26 +59,38 @@ public class FileStorage implements Storage {
         try (var reader = new InputStreamReader(new FileInputStream(filename.toFile()));
                 var writer = new OutputStreamWriter(baos, core.Defaults.CHARSET)) {
             reader.transferTo(writer);
-        } catch (IOException e) {
-            e.printStackTrace();
+        }
+         catch (IOException e) {
+            System.err.println("Error reading file (the data is lost): " + e.getMessage());
         }
         return baos;
     }
 
+    /**
+     * Returns the file creation time as reported by the file system.
+     *
+     * @return creation date, or null if it cannot be determined
+     */
     @Override
     public Date getDateCreated() {
         try {
             new Date(((FileTime) (Files.getAttribute(filename, "creationTime"))).toMillis());
         } catch (IOException e) {
-            e.printStackTrace();
-        }
+            System.err.println("Error getting creation date: " + e.getMessage());
+            }
         return null;
     }
 
+    /**
+     * Returns the file modification time.
+     *
+     * @return last modified date
+     */
     @Override
     public Date getDateModified() {
         return new Date(filename.toFile().lastModified());
     }
 
+    /** Backing file path. */
     private final Path filename;
 }

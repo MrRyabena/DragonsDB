@@ -12,8 +12,23 @@ import dragon.view.StringView;
 import dragon.view.View;
 import storage.Storage;
 
+/**
+ * Application facade that wires together collection, storage and command execution.
+ *
+ * <p>Contains a registry of supported commands and their implementations and maintains a history
+ * of recently executed commands.
+ */
 public class UI {
 
+    /**
+     * Creates a UI instance with explicitly provided views.
+     *
+     * @param collection collection API implementation
+     * @param storage persistence implementation
+     * @param out output writer for user-visible messages
+     * @param storageView view used to serialize collection into storage format
+     * @param outView view used to render collection to user-visible format
+     */
     public UI(collection.API collection, Storage storage, OutputStreamWriter out, View storageView, View outView) {
         this.collection = collection;
         this.storage = storage;
@@ -23,16 +38,33 @@ public class UI {
         this.outView = outView;
     }
 
+    /**
+     * Creates a UI instance with default views: JSON for storage and text for output.
+     *
+     * @param collection collection API implementation
+     * @param storage persistence implementation
+     * @param out output writer for user-visible messages
+     */
     public UI(collection.API collection, Storage storage, OutputStreamWriter out) {
         this(collection, storage, out, new JsonView(), new StringView());
     }
 
+    /**
+     * Executes a command using the command registry and records it in history.
+     *
+     * @param command command to execute
+     */
     public void execute(Command command) {
         var execute = executes.get(command.command().getCode());
         execute.execute(command, this);
         addToHistory(command);
     }
 
+    /**
+     * Adds the command to the fixed-size history and flushes output.
+     *
+     * @param command command to record
+     */
     private void addToHistory(Command command) {
         if (history.size() == 8) {
             history.removeFirst();
@@ -45,15 +77,25 @@ public class UI {
         }
     }
 
+    /** Collection API used by commands. */
     private collection.API collection;
+
+    /** Storage implementation used for save/load operations. */
     private Storage storage;
+
+    /** Output destination for user-visible messages. */
     private OutputStreamWriter out;
 
+    /** View used to serialize the collection for storage. */
     private View storageView;
+
+    /** View used to render output for the user. */
     private View outView;
 
+    /** Circular history buffer of last 8 commands. */
     private final Deque<Command> history = new ArrayDeque<>(8);
 
+    /** Mapping from command code to executable implementation. */
     private static final HashMap<Integer, Executable> executes;
 
     static {

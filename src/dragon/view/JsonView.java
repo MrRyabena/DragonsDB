@@ -11,10 +11,22 @@ import com.google.gson.GsonBuilder;
 
 import dragon.Dragon;
 
+/**
+ * JSON-based {@link View} implementation using Gson.
+ *
+ * <p>Serializes/deserializes a stream of dragons as a JSON array.
+ */
 public class JsonView implements View {
 
+    /** Gson instance configured for pretty printing. */
     private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
+    /**
+     * Serializes a stream of dragons to JSON.
+     *
+     * @param stream stream of dragons (may be null)
+     * @return input stream containing JSON array
+     */
     @Override
     public InputStream toView(Stream<Dragon> stream) {
         if (stream == null) {
@@ -37,6 +49,15 @@ public class JsonView implements View {
         return new ByteArrayInputStream(baos.toByteArray());
     }
 
+    /**
+     * Deserializes dragons from a byte buffer.
+     *
+     * <p>Requires {@link ByteArrayOutputStream} as input container.
+     *
+     * @param stream output stream containing serialized JSON bytes
+     * @return stream of decoded dragons
+     * @throws IllegalArgumentException if the given stream is not a {@link ByteArrayOutputStream}
+     */
     @Override
     public Stream<Dragon> fromView(OutputStream stream) {
         if (!(stream instanceof ByteArrayOutputStream)) {
@@ -48,65 +69,101 @@ public class JsonView implements View {
             return Stream.empty();
         }
 
-        var input = new ByteArrayInputStream(bytes);
-        var reader = new java.io.InputStreamReader(input, core.Defaults.CHARSET);
-        var jsonReader = new com.google.gson.stream.JsonReader(reader);
-
         try {
+
+            var input = new ByteArrayInputStream(bytes);
+            var reader = new java.io.InputStreamReader(input, core.Defaults.CHARSET);
+            var jsonReader = new com.google.gson.stream.JsonReader(reader);
+
             jsonReader.beginArray();
+            // } catch (java.io.IOException e) {
+            //     throw new RuntimeException(e);
+            // }
+
+            var iterator =
+                    new java.util.Iterator<Dragon>() {
+                        private Dragon next = null;
+                        private boolean finished = false;
+
+                        private void finishQuietly() {
+                            finished = true;
+                            try {
+                                jsonReader.close();
+                            } catch (java.io.IOException ignored) {
+                            }
+                        }
+
+                        private void advance() {
+                            if (finished || next != null) {
+                                return;
+                            }
+
+                            try {
+                                if (!jsonReader.hasNext()) {
+                                    finished = true;
+                                    jsonReader.endArray();
+                                    jsonReader.close();
+                                    return;
+                                }
+                                next = gson.fromJson(jsonReader, Dragon.class);
+                            } catch (java.io.IOException e) {
+                                throw new RuntimeException(e);
+                            } catch (com.google.gson.JsonSyntaxException e) {
+                                // Includes MalformedJsonException as a cause for broken JSON.
+                                System.err.println("Error parsing JSON (the data is lost): " + e.getMessage());
+                                finishQuietly();
+                            } catch (com.google.gson.JsonIOException e) {
+                                System.err.println("Error reading JSON (the data is lost): " + e.getMessage());
+                                finishQuietly();
+                            } catch (com.google.gson.JsonParseException e) {
+                                System.err.println("Error parsing JSON (the data is lost): " + e.getMessage());
+                                finishQuietly();
+                            }
+                        }
+
+                        @Override
+                        public boolean hasNext() {
+                            advance();
+                            return next != null;
+                        }
+
+                        @Override
+                        public Dragon next() {
+                            advance();
+                            if (next == null) {
+                                throw new java.util.NoSuchElementException();
+                            }
+                            var result = next;
+                            next = null;
+                            return result;
+                        }
+                    };
+
+            var spliterator =
+                    java.util.Spliterators.spliteratorUnknownSize(
+                            iterator,
+                            java.util.Spliterator.ORDERED | java.util.Spliterator.NONNULL);
+            var streamResult = java.util.stream.StreamSupport.stream(spliterator, false);
+            streamResult =
+                    streamResult.onClose(
+                            () -> {
+                                try {
+                                    jsonReader.close();
+                                } catch (java.io.IOException ignored) {
+                                }
+                            });
+            return streamResult;
         } catch (java.io.IOException e) {
-            throw new RuntimeException(e);
+            return Stream.empty();
+        } catch (com.google.gson.JsonIOException e) {
+            System.err.println("Error reading JSON: " + e.getMessage());
+            return Stream.empty();
+        } catch (com.google.gson.JsonSyntaxException e) {
+            System.err.println("Error parsing JSON: " + e.getMessage());
+            return Stream.empty();
+        } catch (com.google.gson.JsonParseException e) {
+            System.err.println("Error parsing JSON: " + e.getMessage());
+            return Stream.empty();
         }
-
-        var iterator = new java.util.Iterator<Dragon>() {
-            private Dragon next = null;
-            private boolean finished = false;
-
-            private void advance() {
-                if (finished || next != null) {
-                    return;
-                }
-
-                try {
-                    if (!jsonReader.hasNext()) {
-                        finished = true;
-                        jsonReader.endArray();
-                        jsonReader.close();
-                        return;
-                    }
-                    next = gson.fromJson(jsonReader, Dragon.class);
-                } catch (java.io.IOException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-
-            @Override
-            public boolean hasNext() {
-                advance();
-                return next != null;
-            }
-
-            @Override
-            public Dragon next() {
-                advance();
-                if (next == null) {
-                    throw new java.util.NoSuchElementException();
-                }
-                var result = next;
-                next = null;
-                return result;
-            }
-        };
-
-        var spliterator = java.util.Spliterators.spliteratorUnknownSize(iterator,
-                java.util.Spliterator.ORDERED | java.util.Spliterator.NONNULL);
-        var streamResult = java.util.stream.StreamSupport.stream(spliterator, false);
-        streamResult = streamResult.onClose(() -> {
-            try {
-                jsonReader.close();
-            } catch (java.io.IOException ignored) {
-            }
-        });
-        return streamResult;
     }
 }

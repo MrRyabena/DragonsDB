@@ -6,8 +6,19 @@ import java.util.stream.Stream;
 
 import dragon.Dragon;
 
+/**
+ * Human-readable text {@link View} implementation.
+ *
+ * <p>Formats each dragon as a multi-line block with basic indentation for nested objects.
+ */
 public class StringView implements View {
 
+    /**
+     * Formats a stream of dragons into a text representation.
+     *
+     * @param stream stream of dragons
+     * @return input stream containing formatted text
+     */
     @Override
     public InputStream toView(Stream<Dragon> stream) {
         StringBuilder sb = new StringBuilder();
@@ -43,6 +54,14 @@ public class StringView implements View {
         return new java.io.ByteArrayInputStream(sb.toString().getBytes(core.Defaults.CHARSET));
     }
 
+    /**
+     * Appends a single formatted field with indentation.
+     *
+     * @param sb target string builder
+     * @param name field label (including alignment spaces if desired)
+     * @param value value string or null to omit value after the label
+     * @param indentLevel indentation level (each level adds two spaces)
+     */
     private static void appendField(StringBuilder sb, String name, String value, int indentLevel) {
         for (int i = 0; i < indentLevel; i++) {
             sb.append("  ");
@@ -57,6 +76,12 @@ public class StringView implements View {
         sb.append(System.lineSeparator());
     }
 
+    /**
+     * Parsing is not implemented for this view.
+     *
+     * @param stream ignored
+     * @return empty stream
+     */
     @Override
     public Stream<Dragon> fromView(OutputStream stream) {
         return Stream.empty();
