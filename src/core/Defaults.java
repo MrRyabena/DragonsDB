@@ -13,5 +13,6 @@ public final class Defaults {
     /** Charset used for all text I/O operations. */
     public static final Charset CHARSET = StandardCharsets.UTF_8;
 
+    public static final String SERVER_HOST = "localhost";
     public static final int SERVER_PORT = 5000;
 }
