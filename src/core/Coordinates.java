@@ -1,16 +1,18 @@
 package core;
 
+import java.io.Serializable;
+
 /**
  * 2D coordinates value object with validation constraints.
  */
-public class Coordinates {
+public class Coordinates implements Serializable {
 
     /**
      * Constructs coordinates with validation.
      *
      * @param x x coordinate (must be greater than -359, cannot be null)
      * @param y y coordinate (must be less than or equal to 603, cannot be null)
-     * @throws BadDataException if constraints are violated
+     * @throws BadDataException     if constraints are violated
      * @throws NullPointerException if x or y is null
      */
     public Coordinates(Float x, Float y) throws BadDataException, NullPointerException {
@@ -40,13 +42,16 @@ public class Coordinates {
      *
      * @param x x coordinate (must be greater than -359, cannot be null)
      * @param y y coordinate (must be less than or equal to 603, cannot be null)
-     * @throws BadDataException if constraints are violated
+     * @throws BadDataException     if constraints are violated
      * @throws NullPointerException if x or y is null
      */
     public final void setXY(Float x, Float y) throws BadDataException, NullPointerException {
-        if (x == null || y == null) throw new NullPointerException();
-        if (x <= -359) throw new BadDataException("Value 'x' must be greater than -359");
-        if (y > 603) throw new BadDataException("Value 'y' must be less than 603");
+        if (x == null || y == null)
+            throw new NullPointerException();
+        if (x <= -359)
+            throw new BadDataException("Value 'x' must be greater than -359");
+        if (y > 603)
+            throw new BadDataException("Value 'y' must be less than 603");
         this.x = x;
         this.y = y;
     }
