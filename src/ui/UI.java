@@ -3,6 +3,7 @@ package ui;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
@@ -64,7 +65,7 @@ public class UI {
         addToHistory(command);
     }
 
-    public void setOutputStream(OutputStreamWriter out) {
+    public void setOutputWriter(Writer out) {
         this.out = out;
     }
 
@@ -96,7 +97,7 @@ public class UI {
     private Storage storage;
 
     /** Output destination for user-visible messages. */
-    private OutputStreamWriter out;
+    private Writer out;
 
     /** View used to serialize the collection for storage. */
     private View storageView;
@@ -119,7 +120,16 @@ public class UI {
                 (command, ui) -> ui.collection.removeIf(x -> x.getId() == command.dragon().getId()));
         executes.put(Commands.CLEAR.getCode(), (command, ui) -> ui.collection.clear());
         executes.put(Commands.SAVE.getCode(),
-                (command, ui) -> ui.storage.save(ui.storageView.toView(ui.collection.getStream())));
+                (command, ui) -> {
+                    // ui.storage.save(ui.storageView.toView(ui.collection.getStream())));
+                    try {
+                        ui.out.write("This method is not supported in the current version.");
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+
+                });
+
         executes.put(Commands.REMOVE_GREATER.getCode(),
                 (command, ui) -> ui.collection.removeIf(x -> x.compareTo(command.dragon()) > 0));
         executes.put(Commands.REMOVE_LOWER.getCode(),
