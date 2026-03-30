@@ -6,6 +6,7 @@ import java.net.SocketAddress;
 import java.nio.channels.DatagramChannel;
 import java.util.Optional;
 import java.util.function.Supplier;
+
 import core.Defaults;
 import org.apache.log4j.Logger;
 
@@ -18,20 +19,22 @@ public class ConnectionHandler implements Supplier<Optional<ServerContext>>, Aut
             channel = DatagramChannel.open();
             channel.bind(new InetSocketAddress(Defaults.SERVER_PORT));
             channel.configureBlocking(false);
-        } catch (IOException e) {
-            logger.error(e.getStackTrace());
-        } catch (IllegalArgumentException e) {
-            logger.error(e.getStackTrace());
+        } catch (IOException | IllegalArgumentException e) {
+            throw new IllegalStateException("Failed to initialize UDP channel on port " + Defaults.SERVER_PORT, e);
         }
         context = new ServerContext();
     }
 
     static {
-        logger = java.util.logging.Logger.getLogger(ConnectionHandler.class);
+        logger = Logger.getLogger(ConnectionHandler.class);
     }
 
     @Override
     public Optional<ServerContext> get() {
+        if (channel == null) {
+            return Optional.empty();
+        }
+
         try {
             SocketAddress address = channel.receive(context.requestData);
 
@@ -46,7 +49,7 @@ public class ConnectionHandler implements Supplier<Optional<ServerContext>>, Aut
                 return out;
             }
         } catch (IOException e) {
-            logger.error(e.printStackTrace());
+            logger.error("Failed to receive request", e);
         }
 
         return Optional.empty();
@@ -58,8 +61,12 @@ public class ConnectionHandler implements Supplier<Optional<ServerContext>>, Aut
             channel.close();
             logger.info("Closed.");
         } catch (IOException e) {
-            logger.error(e.printStackTrace());
+            logger.error("Failed to close connection handler", e);
         }
+    }
+
+    DatagramChannel getChannel() {
+        return channel;
     }
 
     private DatagramChannel channel;

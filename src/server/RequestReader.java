@@ -1,9 +1,7 @@
 package server;
 
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
-import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.util.Iterator;
 import java.util.Spliterator;
@@ -15,8 +13,6 @@ import org.apache.log4j.Logger;
 
 import collection.ApiCommand;
 import dragon.Dragon;
-import dragon.view.SerializedView;
-import ui.Command;
 
 public class RequestReader implements Consumer<ServerContext> {
 
@@ -25,7 +21,7 @@ public class RequestReader implements Consumer<ServerContext> {
     }
 
     static {
-        logger = java.util.logging.Logger.getLogger(RequestReader.class);
+        logger = Logger.getLogger(RequestReader.class);
     }
 
     @Override
@@ -45,7 +41,11 @@ public class RequestReader implements Consumer<ServerContext> {
 
                 private Dragon readNext() {
                     try {
-                        return (Dragon) ois.readObject();
+                        Object obj = ois.readObject();
+                        if (!(obj instanceof Dragon dragon)) {
+                            throw new IllegalArgumentException("Request payload contains non-Dragon object");
+                        }
+                        return dragon;
                     } catch (EOFException e) {
                         return null; // конец потока
                     } catch (Exception e) {
@@ -71,7 +71,8 @@ public class RequestReader implements Consumer<ServerContext> {
                     false);
 
         } catch (Exception e) {
-            logger.error(e.getStackTrace());
+            logger.error("Failed to decode request", e);
+            context.stream = java.util.stream.Stream.empty();
         }
     }
 

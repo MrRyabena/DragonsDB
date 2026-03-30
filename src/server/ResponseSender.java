@@ -3,26 +3,31 @@ package server;
 import java.io.IOException;
 import java.nio.channels.DatagramChannel;
 import java.util.function.Consumer;
+import org.apache.log4j.Logger;
 
 public class ResponseSender implements Consumer<ServerContext> {
 
-    public ResponseSender() {
+    public ResponseSender(DatagramChannel channel) {
+        this.channel = channel;
     }
-    
-        static {
-        logger = java.util.logging.Logger.getLogger(ConnectionHandler.class);
+
+    static {
+        logger = Logger.getLogger(ResponseSender.class);
     }
 
     @Override
     public void accept(ServerContext context) {
-        try (var channel = DatagramChannel.open()) {
-            channel.bind(context.clientAddress);
-            channel.configureBlocking(false);
-            channel.write(context.response);
+        try {
+            if (channel == null || context.clientAddress == null || context.response == null) {
+                return;
+            }
+            channel.send(context.response, context.clientAddress);
         } catch (IOException e) {
-            logger.error(e.getStackTrace());
+            logger.error("Failed to send response", e);
         }
 
     }
+
+    private final DatagramChannel channel;
     static private Logger logger;
 }
