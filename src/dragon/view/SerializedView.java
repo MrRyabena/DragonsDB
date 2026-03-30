@@ -1,45 +1,58 @@
-package server;
+package dragon.view;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.OutputStream;
 import java.util.Iterator;
 import java.util.Spliterator;
 import java.util.Spliterators;
-import java.util.function.Consumer;
+import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-import org.apache.log4j.Logger;
-
-import collection.ApiCommand;
 import dragon.Dragon;
-import dragon.view.SerializedView;
-import ui.Command;
 
-public class RequestReader implements Consumer<ServerContext> {
+public class SerializedView implements View {
 
-    public RequestReader() {
-        logger.info("Started.");
-    }
+    @Override
+    public InputStream toView(Stream<Dragon> stream) {
+        try (var baos = new ByteArrayOutputStream(); ObjectOutputStream oos = new ObjectOutputStream(baos)) {
 
-    static {
-        logger = java.util.logging.Logger.getLogger(RequestReader.class);
+            stream.forEach(dragon -> {
+                try {
+                    oos.writeObject(dragon);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            });
+
+            oos.flush();
+            return new ByteArrayInputStream(baos.toByteArray());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return InputStream.nullInputStream();
     }
 
     @Override
-    public void accept(ServerContext context) {
-        byte[] data = new byte[context.requestData.remaining()];
-        context.requestData.get(data);
+    public Stream<Dragon> fromView(OutputStream stream) {
+        if (!(stream instanceof ByteArrayOutputStream baos)) {
+            throw new IllegalArgumentException("BinaryView.fromView expects ByteArrayOutputStream");
+        }
+
+        byte[] data = baos.toByteArray();
+        if (data.length == 0) {
+            return Stream.empty();
+        }
 
         try {
             ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(data));
 
-            // 1. Читаем команду
-            context.command = (ApiCommand) ois.readObject();
-
-            // 2. Создаём ленивый Stream<Dragon>, который читает оставшиеся объекты
             Iterator<Dragon> iterator = new Iterator<>() {
                 Dragon next = readNext();
 
@@ -47,7 +60,7 @@ public class RequestReader implements Consumer<ServerContext> {
                     try {
                         return (Dragon) ois.readObject();
                     } catch (EOFException e) {
-                        return null; // конец потока
+                        return null;
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
@@ -66,14 +79,13 @@ public class RequestReader implements Consumer<ServerContext> {
                 }
             };
 
-            context.stream = StreamSupport.stream(
+            return StreamSupport.stream(
                     Spliterators.spliteratorUnknownSize(iterator, Spliterator.ORDERED),
                     false);
 
-        } catch (Exception e) {
-            logger.error(e.getStackTrace());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 
-    static private Logger logger;
 }

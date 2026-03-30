@@ -13,9 +13,12 @@ import dragon.view.View;
 import storage.Storage;
 
 /**
- * Application facade that wires together collection, storage and command execution.
+ * Application facade that wires together collection, storage and command
+ * execution.
  *
- * <p>Contains a registry of supported commands and their implementations and maintains a history
+ * <p>
+ * Contains a registry of supported commands and their implementations and
+ * maintains a history
  * of recently executed commands.
  */
 public class UI {
@@ -23,11 +26,11 @@ public class UI {
     /**
      * Creates a UI instance with explicitly provided views.
      *
-     * @param collection collection API implementation
-     * @param storage persistence implementation
-     * @param out output writer for user-visible messages
+     * @param collection  collection API implementation
+     * @param storage     persistence implementation
+     * @param out         output writer for user-visible messages
      * @param storageView view used to serialize collection into storage format
-     * @param outView view used to render collection to user-visible format
+     * @param outView     view used to render collection to user-visible format
      */
     public UI(collection.API collection, Storage storage, OutputStreamWriter out, View storageView, View outView) {
         this.collection = collection;
@@ -39,11 +42,12 @@ public class UI {
     }
 
     /**
-     * Creates a UI instance with default views: JSON for storage and text for output.
+     * Creates a UI instance with default views: JSON for storage and text for
+     * output.
      *
      * @param collection collection API implementation
-     * @param storage persistence implementation
-     * @param out output writer for user-visible messages
+     * @param storage    persistence implementation
+     * @param out        output writer for user-visible messages
      */
     public UI(collection.API collection, Storage storage, OutputStreamWriter out) {
         this(collection, storage, out, new JsonView(), new StringView());
@@ -58,6 +62,14 @@ public class UI {
         var execute = executes.get(command.command().getCode());
         execute.execute(command, this);
         addToHistory(command);
+    }
+
+    public void setOutputStream(OutputStreamWriter out) {
+        this.out = out;
+    }
+
+    public void setOutputView(View view) {
+        outView = view;
     }
 
     /**
