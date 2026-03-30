@@ -4,6 +4,10 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.WriteAbortedException;
+import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -17,8 +21,11 @@ import java.util.function.Consumer;
 /**
  * Interactive text UI handler.
  *
- * <p>Reads commands from stdin (or from script files via {@code execute_script}) and dispatches them
- * to {@link UI}. Supports a bounded script recursion depth and basic input validation for building
+ * <p>
+ * Reads commands from stdin (or from script files via {@code execute_script})
+ * and dispatches them
+ * to {@link UI}. Supports a bounded script recursion depth and basic input
+ * validation for building
  * {@link dragon.Dragon} objects.
  */
 public class TextUIHandler implements Runnable {
@@ -33,9 +40,15 @@ public class TextUIHandler implements Runnable {
         this.readers = new ArrayDeque<>();
         this.openScripts = new ArrayDeque<>();
         this.in = new BufferedReader(new InputStreamReader(System.in));
+        this.out = new OutputStreamWriter(System.out);
 
-        System.out.println("Welcome to the Dragon database!");
-        System.out.println("You can manage dragons using the following commands (type 'help' to list them):");
+        try {
+            out.write("Welcome to the Dragon database!\n");
+            out.write("You can manage dragons using the following commands (type 'help' to list them):\n");
+            out.flush();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
         readers.push(in);
 
@@ -46,7 +59,9 @@ public class TextUIHandler implements Runnable {
     /**
      * Main interactive loop.
      *
-     * <p>Reads lines from the current input source, supports returning from scripts, and executes
+     * <p>
+     * Reads lines from the current input source, supports returning from scripts,
+     * and executes
      * parsed commands until input is exhausted.
      */
     @Override
@@ -78,6 +93,9 @@ public class TextUIHandler implements Runnable {
     /** UI facade used to execute parsed commands. */
     private UI ui;
 
+    /** Output destination for user-visible messages. */
+    private Writer out;
+
     /** Primary reader for interactive stdin. */
     private BufferedReader in;
 
@@ -94,11 +112,26 @@ public class TextUIHandler implements Runnable {
     private static final int MAX_SCRIPT_DEPTH = 16;
 
     /**
-     * Prints the prompt only when running in interactive mode (stdin is the only source).
+     * Sets the output writer for user-visible messages.
+     *
+     * @param out output writer
+     */
+    public void setOutputStream(OutputStreamWriter out) {
+        this.out = out;
+    }
+
+    /**
+     * Prints the prompt only when running in interactive mode (stdin is the only
+     * source).
      */
     private void printPromptIfInteractive() {
         if (readers.size() == 1) {
-            System.out.print("> ");
+            try {
+                out.write("> ");
+                out.flush();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -113,13 +146,19 @@ public class TextUIHandler implements Runnable {
     }
 
     /**
-     * Closes current script reader (if any) and returns to the previous input source.
+     * Closes current script reader (if any) and returns to the previous input
+     * source.
      *
-     * @return true if a script reader was closed, false if currently in interactive mode
+     * @return true if a script reader was closed, false if currently in interactive
+     *         mode
      */
     private boolean closeCurrentScriptIfAny() {
         if (readers.size() <= 1) {
             return false;
+        }
+        if (readers.size() <= 2) {
+            ui.setOutputWriter(new OutputStreamWriter(System.out));
+            this.out = new OutputStreamWriter(System.out);
         }
 
         var reader = readers.pop();
@@ -130,7 +169,12 @@ public class TextUIHandler implements Runnable {
 
         var path = openScripts.pollFirst();
         if (path != null) {
-            System.out.printf("Returning to previous input source (script finished): %s%n", path);
+            try {
+                out.write(String.format("Returning to previous input source (script finished): %s%n", path));
+                out.flush();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
         return true;
     }
@@ -147,14 +191,24 @@ public class TextUIHandler implements Runnable {
 
         var handler = commandHandlers.get(cmd);
         if (handler == null) {
-            System.out.printf("Unknown command: %s%n", cmd);
+            try {
+                out.write(String.format("Unknown command: %s%n", cmd));
+                out.flush();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
             return;
         }
 
         try {
             handler.accept(args);
         } catch (RuntimeException e) {
-            System.out.printf("Error while executing command '%s': %s%n", cmd, e.getMessage());
+            try {
+                out.write(String.format("Error while executing command '%s': %s%n", cmd, e.getMessage()));
+                out.flush();
+            } catch (IOException ioException) {
+                ioException.printStackTrace();
+            }
         }
     }
 
@@ -171,35 +225,66 @@ public class TextUIHandler implements Runnable {
 
         commandHandlers.put(Commands.CLEAR.getText(), args -> {
             ui.execute(new Command(Commands.CLEAR, null, null, null));
-            System.out.println("Collection cleared successfully.");
+            try {
+                out.write("Collection cleared successfully.\n");
+                out.flush();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         });
 
         commandHandlers.put(Commands.SAVE.getText(), args -> {
             ui.execute(new Command(Commands.SAVE, null, null, null));
-            System.out.println("Collection saved successfully.");
+            try {
+                out.write("Collection saved successfully.\n");
+                out.flush();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         });
 
-        commandHandlers.put(Commands.HISTORY.getText(), args -> ui.execute(new Command(Commands.HISTORY, null, null, null)));
+        commandHandlers.put(Commands.HISTORY.getText(),
+                args -> ui.execute(new Command(Commands.HISTORY, null, null, null)));
 
         commandHandlers.put(Commands.ADD.getText(), args -> {
             ui.execute(new Command(Commands.ADD, readDragon(), null, null));
-            System.out.println("Dragon added successfully.");
+            try {
+                out.write("Dragon added successfully.\n");
+                out.flush();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         });
 
         commandHandlers.put(Commands.REMOVE_GREATER.getText(), args -> {
             ui.execute(new Command(Commands.REMOVE_GREATER, readDragon(), null, null));
-            System.out.println("All dragons greater than the given one were removed.");
+            try {
+                out.write("All dragons greater than the given one were removed.\n");
+                out.flush();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         });
 
         commandHandlers.put(Commands.REMOVE_LOWER.getText(), args -> {
             ui.execute(new Command(Commands.REMOVE_LOWER, readDragon(), null, null));
-            System.out.println("All dragons lower than the given one were removed.");
+            try {
+                out.write("All dragons lower than the given one were removed.\n");
+                out.flush();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         });
 
         commandHandlers.put(Commands.REMOVE_BY_ID.getText(), args -> {
             var id = parseLongRequired(args, "id");
             ui.execute(new Command(Commands.REMOVE_BY_ID, dragonWithIdOnly(id), null, null));
-            System.out.println("Dragon removed by id.");
+            try {
+                out.write("Dragon removed by id.\n");
+                out.flush();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         });
 
         commandHandlers.put(Commands.UPDATE_BY_ID.getText(), args -> {
@@ -207,7 +292,12 @@ public class TextUIHandler implements Runnable {
             var d = readDragon();
             forceSetDragonId(d, id);
             ui.execute(new Command(Commands.UPDATE_BY_ID, d, null, null));
-            System.out.println("Dragon updated successfully.");
+            try {
+                out.write("Dragon updated successfully.\n");
+                out.flush();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         });
 
         commandHandlers.put(Commands.COUNT_BY_TYPE.getText(), args -> {
@@ -229,10 +319,12 @@ public class TextUIHandler implements Runnable {
     }
 
     /**
-     * Handles {@code execute_script} command by pushing a new reader onto the stack.
+     * Handles {@code execute_script} command by pushing a new reader onto the
+     * stack.
      *
      * @param args path to the script file (may be quoted)
-     * @throws IllegalArgumentException if the path is invalid, unreadable, or recursion is detected
+     * @throws IllegalArgumentException if the path is invalid, unreadable, or
+     *                                  recursion is detected
      */
     private void handleExecuteScript(String args) {
         if (args == null || args.isBlank()) {
@@ -240,7 +332,12 @@ public class TextUIHandler implements Runnable {
         }
 
         if (readers.size() - 1 >= MAX_SCRIPT_DEPTH) {
-            System.out.printf("Maximum script recursion depth reached: %d%n", MAX_SCRIPT_DEPTH);
+            try {
+                out.write(String.format("Maximum script recursion depth reached: %d%n", MAX_SCRIPT_DEPTH));
+                out.flush();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
             return;
         }
 
@@ -270,7 +367,14 @@ public class TextUIHandler implements Runnable {
             var br = new BufferedReader(new FileReader(path.toFile()));
             readers.push(br);
             openScripts.push(path);
-            System.out.printf("Executing script: %s%n", path);
+            ui.setOutputWriter(OutputStreamWriter.nullWriter());
+            try {
+                out.write(String.format("Executing script: %s%n", path));
+                out.flush();
+                this.out = OutputStreamWriter.nullWriter();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         } catch (IOException e) {
             throw new IllegalArgumentException("Failed to open script: " + path);
         }
@@ -279,7 +383,9 @@ public class TextUIHandler implements Runnable {
     /**
      * Returns a base directory for resolving relative script paths.
      *
-     * <p>If scripts are nested, relative paths are resolved against the directory of the current script.
+     * <p>
+     * If scripts are nested, relative paths are resolved against the directory of
+     * the current script.
      *
      * @return base directory path
      */
@@ -295,13 +401,15 @@ public class TextUIHandler implements Runnable {
     }
 
     /**
-     * Removes matching leading and trailing quotes (single or double) from a string.
+     * Removes matching leading and trailing quotes (single or double) from a
+     * string.
      *
      * @param s input string
      * @return unquoted string
      */
     private String stripMatchingQuotes(String s) {
-        if (s == null) return null;
+        if (s == null)
+            return null;
         if (s.length() >= 2) {
             var first = s.charAt(0);
             var last = s.charAt(s.length() - 1);
@@ -316,16 +424,21 @@ public class TextUIHandler implements Runnable {
      * Prints available command names.
      */
     private void printHelp() {
-        System.out.println("Available commands:");
-        for (var c : Commands.values()) {
-            System.out.println("- " + c.getText());
+        try {
+            out.write("Available commands:\n");
+            for (var c : Commands.values()) {
+                out.write("- " + c.getText() + "\n");
+            }
+            out.flush();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
     /**
      * Parses a required long value.
      *
-     * @param s raw string
+     * @param s       raw string
      * @param argName argument name for error messages
      * @return parsed long
      * @throws IllegalArgumentException if missing or invalid
@@ -360,14 +473,16 @@ public class TextUIHandler implements Runnable {
     }
 
     /**
-     * Reads an optional {@link dragon.DragonType} from input. Empty line is treated as null.
+     * Reads an optional {@link dragon.DragonType} from input. Empty line is treated
+     * as null.
      *
      * @return parsed type or null
      * @throws IOException on input error
      */
     private dragon.DragonType readDragonTypeNullable() throws IOException {
         while (true) {
-            System.out.print("Enter type (WATER/UNDERGROUND/AIR/FIRE) or empty line for null: ");
+            out.write("Enter type (WATER/UNDERGROUND/AIR/FIRE) or empty line for null: ");
+            out.flush();
             var line = readLineFromCurrentInput();
             if (line == null) {
                 throw new IllegalStateException("Unexpected end of input while reading type.");
@@ -379,7 +494,8 @@ public class TextUIHandler implements Runnable {
             try {
                 return dragon.DragonType.valueOf(line.toUpperCase(Locale.ROOT));
             } catch (IllegalArgumentException e) {
-                System.out.println("Error: invalid enum value. Please try again.");
+                out.write("Error: invalid enum value. Please try again.\n");
+                out.flush();
             }
         }
     }
@@ -393,7 +509,8 @@ public class TextUIHandler implements Runnable {
      */
     private String readNonEmptyString(String prompt) throws IOException {
         while (true) {
-            System.out.print(prompt);
+            out.write(prompt);
+            out.flush();
             var line = readLineFromCurrentInput();
             if (line == null) {
                 throw new IllegalStateException("Unexpected end of input.");
@@ -402,7 +519,8 @@ public class TextUIHandler implements Runnable {
             if (!line.isEmpty()) {
                 return line;
             }
-            System.out.println("Error: value cannot be empty. Please try again.");
+            out.write("Error: value cannot be empty. Please try again.\n");
+            out.flush();
         }
     }
 
@@ -415,7 +533,8 @@ public class TextUIHandler implements Runnable {
      */
     private float readFloat(String prompt) throws IOException {
         while (true) {
-            System.out.print(prompt);
+            out.write(prompt);
+            out.flush();
             var line = readLineFromCurrentInput();
             if (line == null) {
                 throw new IllegalStateException("Unexpected end of input.");
@@ -424,7 +543,8 @@ public class TextUIHandler implements Runnable {
             try {
                 return Float.parseFloat(line);
             } catch (NumberFormatException e) {
-                System.out.println("Error: you must enter a float number. Please try again.");
+                out.write("Error: you must enter a float number. Please try again.\n");
+                out.flush();
             }
         }
     }
@@ -438,7 +558,8 @@ public class TextUIHandler implements Runnable {
      */
     private int readIntPositive(String prompt) throws IOException {
         while (true) {
-            System.out.print(prompt);
+            out.write(prompt);
+            out.flush();
             var line = readLineFromCurrentInput();
             if (line == null) {
                 throw new IllegalStateException("Unexpected end of input.");
@@ -447,12 +568,14 @@ public class TextUIHandler implements Runnable {
             try {
                 var v = Integer.parseInt(line);
                 if (v <= 0) {
-                    System.out.println("Error: number must be > 0. Please try again.");
+                    out.write("Error: number must be > 0. Please try again.\n");
+                    out.flush();
                     continue;
                 }
                 return v;
             } catch (NumberFormatException e) {
-                System.out.println("Error: you must enter an integer number. Please try again.");
+                out.write("Error: you must enter an integer number. Please try again.\n");
+                out.flush();
             }
         }
     }
@@ -466,7 +589,8 @@ public class TextUIHandler implements Runnable {
      */
     private long readLongPositive(String prompt) throws IOException {
         while (true) {
-            System.out.print(prompt);
+            out.write(prompt);
+            out.flush();
             var line = readLineFromCurrentInput();
             if (line == null) {
                 throw new IllegalStateException("Unexpected end of input.");
@@ -475,12 +599,14 @@ public class TextUIHandler implements Runnable {
             try {
                 var v = Long.parseLong(line);
                 if (v <= 0) {
-                    System.out.println("Error: number must be > 0. Please try again.");
+                    out.write("Error: number must be > 0. Please try again.\n");
+                    out.flush();
                     continue;
                 }
                 return v;
             } catch (NumberFormatException e) {
-                System.out.println("Error: you must enter a long number. Please try again.");
+                out.write("Error: you must enter a long number. Please try again.\n");
+                out.flush();
             }
         }
     }
@@ -503,7 +629,8 @@ public class TextUIHandler implements Runnable {
                     coordinates = new core.Coordinates(x, y);
                     break;
                 } catch (core.BadDataException | NullPointerException e) {
-                    System.out.printf("Coordinates error: %s%n", e.getMessage());
+                    out.write(String.format("Coordinates error: %s%n", e.getMessage()));
+                    out.flush();
                 }
             }
 
@@ -524,7 +651,8 @@ public class TextUIHandler implements Runnable {
     /**
      * Creates a temporary dragon and overwrites its id using reflection.
      *
-     * <p>Used for commands that operate by id without requiring full entity input.
+     * <p>
+     * Used for commands that operate by id without requiring full entity input.
      *
      * @param id target id
      * @return dragon instance with forced id
@@ -548,7 +676,7 @@ public class TextUIHandler implements Runnable {
     /**
      * Sets the {@code id} field of a dragon instance via reflection.
      *
-     * @param d dragon instance
+     * @param d  dragon instance
      * @param id id to assign
      * @throws IllegalStateException if reflection fails
      */
