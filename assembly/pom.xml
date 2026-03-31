@@ -26,6 +26,11 @@
             <artifactId>gson</artifactId>
             <version>2.10.1</version>
         </dependency>
+        <dependency>
+            <groupId>log4j</groupId>
+            <artifactId>log4j</artifactId>
+            <version>1.2.17</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -49,11 +54,6 @@
                 <artifactId>maven-jar-plugin</artifactId>
                 <version>3.2.0</version>
                 <configuration>
-                    <archive>
-                        <manifest>
-                            <mainClass>Main</mainClass>
-                        </manifest>
-                    </archive>
                     <finalName>DragonsDB</finalName>
                 </configuration>
             </plugin>
@@ -64,35 +64,40 @@
                 <version>3.2.4</version>
                 <executions>
                     <execution>
+                        <id>shade-client</id>
                         <phase>package</phase>
                         <goals>
                             <goal>shade</goal>
                         </goals>
                         <configuration>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <shadedArtifactAttached>false</shadedArtifactAttached>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>Main</mainClass>
+                                    <mainClass>client.Client</mainClass>
                                 </transformer>
                             </transformers>
-                            <finalName>DragonsDB</finalName>
+                            <finalName>DragonsDB-client</finalName>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>shade-server</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <shadedArtifactAttached>false</shadedArtifactAttached>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>server.Server</mainClass>
+                                </transformer>
+                            </transformers>
+                            <finalName>DragonsDB-server</finalName>
                         </configuration>
                     </execution>
                 </executions>
-            </plugin>
-
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>exec-maven-plugin</artifactId>
-                <version>3.0.0</version>
-                <configuration>
-                    <executable>java</executable>
-                    <arguments>
-                        <argument>--add-opens</argument>
-                        <argument>java.base/java.time=ALL-UNNAMED</argument>
-                        <argument>-jar</argument>
-                        <argument>target/DragonsDB.jar</argument>
-                    </arguments>
-                </configuration>
             </plugin>
         </plugins>
     </build>
