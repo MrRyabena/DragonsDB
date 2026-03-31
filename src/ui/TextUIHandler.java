@@ -180,7 +180,7 @@ public class TextUIHandler implements Runnable {
                 try {
                     int flushed = requestClient.flushBufferedCommands();
                     if (flushed > 0) {
-                        out.write(String.format("Successfully flushed %d buffered commands after script execution.%n", flushed));
+                        out.write(String.format("Server is now available, successfully sent %d buffered commands from queue.%n", flushed));
                         out.flush();
                     } else {
                         logger.info("No buffered commands to flush.");
@@ -242,7 +242,11 @@ public class TextUIHandler implements Runnable {
         } catch (RuntimeException e) {
             try {
                 if (e.getMessage() != null && e.getMessage().contains("Server unavailable")) {
-                    out.write("Сервер недоступен и команда записана в журнал\n");
+                    if (e.getMessage().contains("for ")) {
+                        out.write("The requested operation is unavailable because the server is unreachable.\n");
+                    } else {
+                        out.write("Server unreachable, command recorded in journal.\n");
+                    }
                 } else {
                     out.write(String.format("Error while executing command '%s': %s%n", cmd, e.getMessage()));
                 }
