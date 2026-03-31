@@ -1,6 +1,7 @@
 
 mvn clean
-
 mvn package -DskipTests
 
-java --add-opens java.base/java.time=ALL-UNNAMED -jar target/DragonsDB.jar
+echo "Built:"
+echo " - target/DragonsDB-client.jar (main: client.Client)"
+echo " - target/DragonsDB-server.jar (main: server.Server)"
