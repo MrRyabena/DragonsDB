@@ -14,6 +14,8 @@ import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
 import java.util.Date;
 
+import org.apache.log4j.Logger;
+
 /**
  * File-based {@link Storage} implementation.
  *
@@ -21,6 +23,7 @@ import java.util.Date;
  * modification time is obtained from the file system rather than being serialized.
  */
 public class FileStorage implements Storage {
+    private static final Logger logger = Logger.getLogger(FileStorage.class);
 
     /**
      * Creates a file storage bound to the specified path.
@@ -61,7 +64,7 @@ public class FileStorage implements Storage {
             reader.transferTo(writer);
         }
          catch (IOException e) {
-            System.err.println("Error reading file (the data is lost): " + e.getMessage());
+            logger.error("Error reading file (the data is lost): " + e.getMessage());
         }
         return baos;
     }
@@ -76,8 +79,8 @@ public class FileStorage implements Storage {
         try {
             new Date(((FileTime) (Files.getAttribute(filename, "creationTime"))).toMillis());
         } catch (IOException e) {
-            System.err.println("Error getting creation date: " + e.getMessage());
-            }
+            logger.error("Error getting creation date: " + e.getMessage());
+        }
         return null;
     }
 

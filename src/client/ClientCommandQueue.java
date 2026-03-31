@@ -13,6 +13,8 @@ import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.LinkedBlockingQueue;
 
+import org.apache.log4j.Logger;
+
 import collection.ApiCommand;
 
 /**
@@ -21,6 +23,7 @@ import collection.ApiCommand;
  * Used when server is temporarily unavailable.
  */
 public class ClientCommandQueue {
+    private static final Logger logger = Logger.getLogger(ClientCommandQueue.class);
     private static final String QUEUE_FILE_NAME = "command_queue.log";
     private static final String SEPARATOR = " | ";
 
@@ -162,7 +165,7 @@ public class ClientCommandQueue {
             Files.write(queueFilePath, filtered);
         } catch (IOException e) {
             // Log but don't fail - queue in memory is correct
-            System.err.println("Warning: failed to update queue file: " + e.getMessage());
+            logger.warn("Failed to update queue file: " + e.getMessage());
         }
     }
 

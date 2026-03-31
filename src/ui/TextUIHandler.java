@@ -16,6 +16,8 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.function.Consumer;
 
+import org.apache.log4j.Logger;
+
 /**
  * Interactive text UI handler.
  *
@@ -27,6 +29,7 @@ import java.util.function.Consumer;
  * {@link dragon.Dragon} objects.
  */
 public class TextUIHandler implements Runnable {
+    private static final Logger logger = Logger.getLogger(TextUIHandler.class);
     /**
      * Creates the handler bound to a {@link UI} instance.
      *
@@ -128,7 +131,7 @@ public class TextUIHandler implements Runnable {
      */
     public void setRequestClient(client.RequestClient requestClient) {
         this.requestClient = requestClient;
-        System.out.println("[HANDLER] RequestClient set successfully");
+        logger.info("RequestClient set successfully");
     }
 
     /**
@@ -173,18 +176,17 @@ public class TextUIHandler implements Runnable {
             
             // Try to flush buffered commands when returning to interactive mode
             if (requestClient != null) {
-                System.out.println("[CLIENT] Flushing buffered commands after script...");
+                logger.info("Flushing buffered commands after script...");
                 try {
                     int flushed = requestClient.flushBufferedCommands();
                     if (flushed > 0) {
-                        out.write(String.format("[CLIENT] Successfully flushed %d buffered commands after script execution.%n", flushed));
+                        out.write(String.format("Successfully flushed %d buffered commands after script execution.%n", flushed));
                         out.flush();
                     } else {
-                        System.out.println("[CLIENT] No buffered commands to flush.");
+                        logger.info("No buffered commands to flush.");
                     }
                 } catch (Exception e) {
-                    System.err.println("[CLIENT] Exception during flush: " + e.getClass().getName() + ": " + e.getMessage());
-                    e.printStackTrace();
+                    logger.error("Exception during flush: " + e.getClass().getName() + ": " + e.getMessage(), e);
                     try {
                         out.write("[CLIENT] Failed to flush buffered commands: " + e.getMessage() + "\n");
                         out.flush();
@@ -239,7 +241,11 @@ public class TextUIHandler implements Runnable {
             handler.accept(args);
         } catch (RuntimeException e) {
             try {
-                out.write(String.format("Error while executing command '%s': %s%n", cmd, e.getMessage()));
+                if (e.getMessage() != null && e.getMessage().contains("Server unavailable")) {
+                    out.write("Сервер недоступен и команда записана в журнал\n");
+                } else {
+                    out.write(String.format("Error while executing command '%s': %s%n", cmd, e.getMessage()));
+                }
                 out.flush();
             } catch (IOException ioException) {
                 ioException.printStackTrace();

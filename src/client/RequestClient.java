@@ -11,20 +11,23 @@ import java.time.Duration;
 import java.util.List;
 import java.util.stream.Stream;
 
+import org.apache.log4j.Logger;
+
 import collection.ApiCommand;
 import dragon.Dragon;
 
 public class RequestClient implements AutoCloseable {
+    private static final Logger logger = Logger.getLogger(RequestClient.class);
 
     public RequestClient(String host, int port) {
         this.serverHost = host;
         this.serverPort = port;
         this.commandQueue = new ClientCommandQueue("./.client_cache");
-        System.out.println("[CLIENT] Loading persisted command queue...");
+        logger.info("Loading persisted command queue...");
         try {
             socket = new DatagramSocket();
             socket.setSoTimeout((int) RESPONSE_TIMEOUT.toMillis());
-            System.out.println("[CLIENT] RequestClient initialized: " + host + ":" + port);
+            logger.info("RequestClient initialized: " + host + ":" + port);
         } catch (IOException e) {
             throw new IllegalStateException("Failed to initialize UDP client", e);
         }
@@ -39,10 +42,10 @@ public class RequestClient implements AutoCloseable {
             try {
                 int flushed = flushBufferedCommands();
                 if (flushed > 0) {
-                    System.out.println("[CLIENT] Flushed " + flushed + " buffered commands before processing: " + command);
+                    logger.info("Flushed " + flushed + " buffered commands before processing: " + command);
                 }
             } catch (Exception e) {
-                System.out.println("[CLIENT] Unable to flush queued commands before sending current command: " + e.getMessage());
+                logger.warn("Unable to flush queued commands before sending current command: " + e.getMessage());
             }
         }
 
@@ -50,22 +53,10 @@ public class RequestClient implements AutoCloseable {
             // Try to send directly to server
             return sendDirect(command, dragons);
         } catch (IOException e) {
-            if (isBufferableCommand(command)) {
-                System.out.println("[CLIENT] Server unavailable, buffering command: " + command);
-                commandQueue.enqueue(command, dragonData);
-                return new byte[0];
-            } else {
-                System.out.println("[CLIENT] Server unavailable, cannot buffer command: " + command);
-                throw new IllegalStateException("Server unavailable (read-only command): " + command, e);
-            }
+            logger.info("Server unavailable, buffering command: " + command);
+            commandQueue.enqueue(command, dragonData);
+            return new byte[0];
         }
-    }
-
-    private boolean isBufferableCommand(ApiCommand command) {
-        return switch (command) {
-            case ADD, UPDATE_BY_ID, CLEAR, REMOVE_IF -> true;
-            case GET_STREAM, COUNT_IF -> false;
-        };
     }
 
     /**
@@ -92,27 +83,26 @@ public class RequestClient implements AutoCloseable {
      */
     public int flushBufferedCommands() {
         if (commandQueue.isEmpty()) {
-            System.out.println("[CLIENT] Command queue is empty, nothing to flush.");
+            logger.info("Command queue is empty, nothing to flush.");
             return 0;
         }
 
-        System.out.println("[CLIENT] Attempting to flush " + commandQueue.size() + " buffered commands...");
+        logger.info("Attempting to flush " + commandQueue.size() + " buffered commands...");
         int sent = 0;
         int failed = 0;
 
         while (!commandQueue.isEmpty()) {
             BufferedCommand buffered = commandQueue.peek();
             try {
-                System.out.println("[CLIENT] Sending buffered: " + buffered.getCommand() + " (attempt " + (buffered.getRetryCount() + 1) + ")");
+                logger.debug("Sending buffered: " + buffered.getCommand() + " (attempt " + (buffered.getRetryCount() + 1) + ")");
                 
                 List<Dragon> dragons = List.of();
                 if (buffered.getDragonData() != null) {
                     try {
                         dragons = deserializeDragons(buffered.getDragonData());
-                        System.out.println("[CLIENT] Deserialized " + dragons.size() + " dragons for command");
+                        logger.debug("Deserialized " + dragons.size() + " dragons for command");
                     } catch (Exception e) {
-                        System.err.println("[CLIENT] Failed to deserialize dragons: " + e.getMessage());
-                        e.printStackTrace();
+                        logger.error("Failed to deserialize dragons: " + e.getMessage(), e);
                         dragons = List.of();
                     }
                 }
@@ -121,15 +111,14 @@ public class RequestClient implements AutoCloseable {
                 
                 commandQueue.dequeue(); // Remove from queue after success
                 sent++;
-                System.out.println("[CLIENT] Successfully sent buffered command: " + buffered.getCommand());
+                logger.info("Successfully sent buffered command: " + buffered.getCommand());
             } catch (IOException e) {
-                System.out.println("[CLIENT] IOException while flushing: " + e.getMessage());
+                logger.warn("IOException while flushing: " + e.getMessage());
                 buffered.incrementRetryCount();
-                System.out.println("[CLIENT] Server still unavailable, stopping flush");
+                logger.warn("Server still unavailable, stopping flush");
                 break;
             } catch (Exception e) {
-                System.err.println("[CLIENT] Unexpected error while flushing: " + e.getClass().getName() + ": " + e.getMessage());
-                e.printStackTrace();
+                logger.error("Unexpected error while flushing: " + e.getClass().getName() + ": " + e.getMessage(), e);
                 buffered.incrementRetryCount();
                 if (buffered.getRetryCount() > MAX_RETRIES) {
                     commandQueue.dequeue();
@@ -140,7 +129,7 @@ public class RequestClient implements AutoCloseable {
             }
         }
 
-        System.out.println("[CLIENT] Flush complete: " + sent + " sent, " + failed + " failed, " + 
+        logger.info("Flush complete: " + sent + " sent, " + failed + " failed, " + 
             commandQueue.size() + " remaining in queue");
         return sent;
     }

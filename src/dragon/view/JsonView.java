@@ -6,6 +6,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.stream.Stream;
 
+import org.apache.log4j.Logger;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -17,6 +19,7 @@ import dragon.Dragon;
  * <p>Serializes/deserializes a stream of dragons as a JSON array.
  */
 public class JsonView implements View {
+    private static final Logger logger = Logger.getLogger(JsonView.class);
 
     /** Gson instance configured for pretty printing. */
     private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
@@ -110,13 +113,13 @@ public class JsonView implements View {
                                 throw new RuntimeException(e);
                             } catch (com.google.gson.JsonSyntaxException e) {
                                 // Includes MalformedJsonException as a cause for broken JSON.
-                                System.err.println("Error parsing JSON (the data is lost): " + e.getMessage());
+                                logger.error("Error parsing JSON (the data is lost): " + e.getMessage());
                                 finishQuietly();
                             } catch (com.google.gson.JsonIOException e) {
-                                System.err.println("Error reading JSON (the data is lost): " + e.getMessage());
+                                logger.error("Error reading JSON (the data is lost): " + e.getMessage());
                                 finishQuietly();
                             } catch (com.google.gson.JsonParseException e) {
-                                System.err.println("Error parsing JSON (the data is lost): " + e.getMessage());
+                                logger.error("Error parsing JSON (the data is lost): " + e.getMessage());
                                 finishQuietly();
                             }
                         }
@@ -156,13 +159,13 @@ public class JsonView implements View {
         } catch (java.io.IOException e) {
             return Stream.empty();
         } catch (com.google.gson.JsonIOException e) {
-            System.err.println("Error reading JSON: " + e.getMessage());
+            logger.error("Error reading JSON: " + e.getMessage());
             return Stream.empty();
         } catch (com.google.gson.JsonSyntaxException e) {
-            System.err.println("Error parsing JSON: " + e.getMessage());
+            logger.error("Error parsing JSON: " + e.getMessage());
             return Stream.empty();
         } catch (com.google.gson.JsonParseException e) {
-            System.err.println("Error parsing JSON: " + e.getMessage());
+            logger.error("Error parsing JSON: " + e.getMessage());
             return Stream.empty();
         }
     }

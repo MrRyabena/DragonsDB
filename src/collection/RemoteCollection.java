@@ -35,12 +35,18 @@ public class RemoteCollection implements API, AutoCloseable {
         if (element == null) {
             return;
         }
-        client.send(ApiCommand.ADD, Stream.of(element));
+        byte[] response = client.send(ApiCommand.ADD, Stream.of(element));
+        if (response.length == 0) {
+            throw new RuntimeException("Server unavailable");
+        }
     }
 
     @Override
     public void add(Stream<Dragon> elements) {
-        client.send(ApiCommand.ADD, elements);
+        byte[] response = client.send(ApiCommand.ADD, elements);
+        if (response.length == 0) {
+            throw new RuntimeException("Server unavailable");
+        }
     }
 
     @Override
@@ -48,12 +54,18 @@ public class RemoteCollection implements API, AutoCloseable {
         if (element == null) {
             return;
         }
-        client.send(ApiCommand.UPDATE_BY_ID, Stream.of(element));
+        byte[] response = client.send(ApiCommand.UPDATE_BY_ID, Stream.of(element));
+        if (response.length == 0) {
+            throw new RuntimeException("Server unavailable");
+        }
     }
 
     @Override
     public void clear() {
-        client.send(ApiCommand.CLEAR, Stream.empty());
+        byte[] response = client.send(ApiCommand.CLEAR, Stream.empty());
+        if (response.length == 0) {
+            throw new RuntimeException("Server unavailable");
+        }
     }
 
     @Override
@@ -69,7 +81,10 @@ public class RemoteCollection implements API, AutoCloseable {
     public void removeIf(Predicate<? super Dragon> filter) {
         var snapshot = getStream().toList();
         Set<Long> idsToRemove = snapshot.stream().filter(filter).map(Dragon::getId).collect(Collectors.toSet());
-        client.send(ApiCommand.REMOVE_IF, snapshot.stream().filter(d -> idsToRemove.contains(d.getId())));
+        byte[] response = client.send(ApiCommand.REMOVE_IF, snapshot.stream().filter(d -> idsToRemove.contains(d.getId())));
+        if (response.length == 0) {
+            throw new RuntimeException("Server unavailable");
+        }
     }
 
     @Override

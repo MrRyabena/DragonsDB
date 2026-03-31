@@ -3,12 +3,15 @@ package client;
 import java.io.OutputStreamWriter;
 import java.nio.file.InvalidPathException;
 
+import org.apache.log4j.Logger;
+
 import collection.RemoteCollection;
 import storage.RemoteStorage;
 import ui.TextUIHandler;
 import ui.UI;
 
 public class Client {
+    private static final Logger logger = Logger.getLogger(Client.class);
     public static void main(String[] args) {
         String serverHost = null;
         String serverPort = null;
@@ -23,20 +26,16 @@ public class Client {
 
         if (serverHost == null) {
             serverHost = core.Defaults.SERVER_HOST;
-            System.err.printf(
-                    "Environment variable SERVER_HOST not found! Using default: \"%s\"\n",
-                    serverHost);
+            logger.warn("Environment variable SERVER_HOST not found! Using default: \"" + serverHost + "\"");
         }
         if (serverPort == null) {
-            System.err.printf(
-                    "Environment variable SERVER_PORT not found! Using default: \"%d\"\n",
-                    core.Defaults.SERVER_PORT);
+            logger.warn("Environment variable SERVER_PORT not found! Using default: \"" + core.Defaults.SERVER_PORT + "\"");
         } else {
 
             try {
                 port = Integer.parseInt(serverPort);
             } catch (NumberFormatException e) {
-                System.err.println("Invalid SERVER_PORT, using default: " + port);
+                logger.warn("Invalid SERVER_PORT, using default: " + port);
             }
         }
         
@@ -44,9 +43,9 @@ public class Client {
         RequestClient requestClient;
         try {
             requestClient = new RequestClient(serverHost, port);
-            System.out.println("[CLIENT] Connected to server at " + serverHost + ":" + port);
+            logger.info("Connected to server at " + serverHost + ":" + port);
         } catch (Exception e) {
-            System.err.println("[CLIENT] Warning: Failed to initialize request client: " + e.getMessage());
+            logger.warn("Failed to initialize request client: " + e.getMessage());
             requestClient = null;
         }
         
