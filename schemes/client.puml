@@ -1,0 +1,257 @@
+@startuml
+hide empty members
+skinparam classAttributeIconSize 0
+
+package core {
+  class Defaults <<final>> {
+    +{static} STORAGE_PATH : String
+    +{static} CHARSET : Charset
+    +{static} SERVER_HOST : String
+    +{static} SERVER_PORT : int
+    +{static} RESPONSE_TIMEOUT_SECONDS : int
+  }
+
+  class Coordinates {
+    -x : Float
+    -y : Float
+    +Coordinates(x: Float, y: Float)
+    +getX() : Float
+    +getY() : Float
+    +setXY(x: Float, y: Float) : void
+  }
+
+  class BadDataException extends RuntimeException
+}
+
+package dragon {
+  enum DragonType {
+    WATER
+    UNDERGROUND
+    AIR
+    FIRE
+  }
+
+  class DragonHead {
+    -size : float
+    -toothCount : float
+    +DragonHead(size: float, toothCount: float)
+    +getSize() : float
+    +getToothCount() : float
+  }
+
+  class Dragon {
+    -id : Long
+    -name : String
+    -coordinates : Coordinates
+    -creationDate : LocalDateTime
+    -age : int
+    -weight : long
+    -speaking : boolean
+    -type : DragonType
+    -head : DragonHead
+    +Dragon(name: String, coordinates: Coordinates, age: int, weight: long, type: DragonType, head: DragonHead)
+    +Dragon(name: String, coordinates: Coordinates, age: int, weight: long)
+    +getId() : long
+    +getName() : String
+    +getCoordinates() : Coordinates
+    +getCreationDate() : LocalDateTime
+    +getAge() : int
+    +getWeight() : long
+    +isSpeaking() : boolean
+    +getType() : DragonType
+    +getHead() : DragonHead
+    +compareTo(other: Dragon) : int
+  }
+}
+
+package "dragon.view" {
+  interface View {
+    +toView(stream: Stream<Dragon>) : InputStream
+    +fromView(stream: OutputStream) : Stream<Dragon>
+  }
+
+  class JsonView {
+    -gson : Gson
+    +toView(stream: Stream<Dragon>) : InputStream
+    +fromView(stream: OutputStream) : Stream<Dragon>
+  }
+
+  class StringView {
+    +toView(stream: Stream<Dragon>) : InputStream
+    +fromView(stream: OutputStream) : Stream<Dragon>
+  }
+}
+
+package collection {
+  interface API {
+    +add(element: Dragon) : void
+    +add(elements: Stream<Dragon>) : void
+    +updateById(element: Dragon) : void
+    +clear() : void
+    +getStream() : Stream<Dragon>
+    +removeIf(filter: Predicate<Dragon>) : void
+    +countIf(filter: Predicate<Dragon>) : int
+  }
+
+  class RemoteCollection {
+    -client : RequestClient
+    +RemoteCollection()
+    +RemoteCollection(host: String, port: int)
+    +RemoteCollection(client: RequestClient)
+    +add(element: Dragon) : void
+    +add(elements: Stream<Dragon>) : void
+    +updateById(element: Dragon) : void
+    +clear() : void
+    +getStream() : Stream<Dragon>
+    +removeIf(filter: Predicate<Dragon>) : void
+    +countIf(filter: Predicate<Dragon>) : int
+  }
+}
+
+package storage {
+  interface Storage {
+    +save(stream: InputStream) : void
+    +load() : OutputStream
+    +getDateCreated() : Date
+    +getDateModified() : Date
+  }
+
+  class RemoteStorage {
+    +RemoteStorage()
+    +RemoteStorage(host: String, port: int)
+    +RemoteStorage(client: RequestClient)
+    +save(stream: InputStream) : void
+    +load() : OutputStream
+    +getDateCreated() : Date
+    +getDateModified() : Date
+  }
+}
+
+package client {
+  class Client {
+    +{static} main(args: String[]) : void
+  }
+
+  class RequestClient <<AutoCloseable>> {
+    -serverHost : String
+    -serverPort : int
+    -socket : DatagramSocket
+    -commandQueue : ClientCommandQueue
+    +RequestClient(host: String, port: int)
+    +send(command: ApiCommand, stream: Stream<Dragon>) : byte[]
+    +flushBufferedCommands() : int
+  }
+
+  class ClientCommandQueue {
+    -queueFilePath : Path
+    -queue : Queue<BufferedCommand>
+    +ClientCommandQueue(clientCacheDirectory: String)
+    +enqueue(command: ApiCommand, dragonData: String) : void
+    +dequeue() : BufferedCommand
+    +peek() : BufferedCommand
+    +isEmpty() : boolean
+    +size() : int
+  }
+
+  class BufferedCommand {
+    -command : ApiCommand
+    -dragonData : String
+    -retryCount : int
+    +BufferedCommand(command: ApiCommand, dragonData: String)
+    +getCommand() : ApiCommand
+    +getDragonData() : String
+    +getRetryCount() : int
+    +incrementRetryCount() : void
+  }
+}
+
+package ui {
+  enum Commands {
+    HELP
+    INFO
+    ADD
+    SHOW
+    UPDATE_BY_ID
+    REMOVE_BY_ID
+    CLEAR
+    SAVE
+    EXECUTE_SCRIPT
+    EXIT
+    REMOVE_GREATER
+    REMOVE_LOWER
+    HISTORY
+    COUNT_BY_TYPE
+    COUNT_GREATER_THAN_TYPE
+    FILTER_STARTS_WITH_NAME
+  }
+
+  class UI {
+    -collection : API
+    -storage : Storage
+    -out : OutputStreamWriter
+    -storageView : View
+    -outView : View
+    -history : Deque<Command>
+    +UI(collection: API, storage: Storage, out: OutputStreamWriter, storageView: View, outView: View)
+    +UI(collection: API, storage: Storage, out: OutputStreamWriter)
+    +execute(command: Command) : void
+  }
+
+  interface Executable {
+    +execute(command: Command, ui: UI) : void
+  }
+
+  class TextUIHandler <<Runnable>> {
+    -ui : UI
+    -readers : Deque<BufferedReader>
+    -openScripts : Deque<String>
+    -in : BufferedReader
+    -out : OutputStreamWriter
+    -requestClient : RequestClient
+    +TextUIHandler(ui: UI)
+    +setRequestClient(client: RequestClient) : void
+    +run() : void
+  }
+
+  class Command <<record>> {
+    +command : Commands
+    +dragon : Dragon
+    +type : DragonType
+    +name : String
+  }
+}
+
+' --- Relationships ---
+"dragon.Dragon" *-- "core.Coordinates"
+"dragon.Dragon" *-- "dragon.DragonHead"
+"dragon.Dragon" o-- "dragon.DragonType"
+
+"collection.RemoteCollection" ..|> "collection.API"
+"storage.RemoteStorage" ..|> "storage.Storage"
+"dragon.view.JsonView" ..|> "dragon.view.View"
+"dragon.view.StringView" ..|> "dragon.view.View"
+
+"client.Client" --> "collection.RemoteCollection"
+"client.Client" --> "storage.RemoteStorage"
+"client.Client" --> "ui.UI"
+"client.Client" --> "ui.TextUIHandler"
+"client.Client" --> "client.RequestClient"
+
+"client.RequestClient" --> "client.ClientCommandQueue"
+"client.ClientCommandQueue" --> "client.BufferedCommand"
+
+"ui.UI" --> "collection.API"
+"ui.UI" --> "storage.Storage"
+"ui.UI" --> "dragon.view.View"
+"ui.UI" --> "ui.Command"
+"ui.UI" --> "ui.Executable"
+"ui.TextUIHandler" --> "ui.UI"
+"ui.TextUIHandler" --> "client.RequestClient"
+"ui.Command" --> "ui.Commands"
+"ui.Command" --> "dragon.Dragon"
+"ui.Command" --> "dragon.DragonType"
+
+"collection.RemoteCollection" --> "client.RequestClient"
+"storage.RemoteStorage" --> "client.RequestClient"
+
+@enduml
