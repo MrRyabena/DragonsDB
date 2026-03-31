@@ -18,25 +18,16 @@ import org.apache.log4j.Logger;
 import collection.ApiCommand;
 
 /**
- * Manages a queue of commands waiting to be sent to the server.
- * Commands are persisted to disk so they survive client restarts.
- * Used when server is temporarily unavailable.
+ * Manages a queue of commands waiting to be sent to the server. Commands are persisted to disk so
+ * they survive client restarts. Used when server is temporarily unavailable.
  */
 public class ClientCommandQueue {
-    private static final Logger logger = Logger.getLogger(ClientCommandQueue.class);
-    private static final String QUEUE_FILE_NAME = "command_queue.log";
-    private static final String SEPARATOR = " | ";
-
-    private final Path queueFilePath;
-    private final Queue<BufferedCommand> queue = new LinkedBlockingQueue<>();
-
-
     public ClientCommandQueue(String clientCacheDirectory) {
         try {
             Path dir = Paths.get(clientCacheDirectory);
             Files.createDirectories(dir);
             this.queueFilePath = dir.resolve(QUEUE_FILE_NAME);
-            
+
             // Load persisted queue from file
             loadQueueFromFile();
         } catch (IOException e) {
@@ -53,7 +44,8 @@ public class ClientCommandQueue {
     public void enqueue(ApiCommand command, String dragonData) {
         BufferedCommand buffered = new BufferedCommand(command, dragonData);
         queue.offer(buffered);
-        System.out.println("[QUEUE] Added to queue: " + command + " (queue size: " + queue.size() + ")");
+        System.out.println(
+                "[QUEUE] Added to queue: " + command + " (queue size: " + queue.size() + ")");
         persistCommand(buffered);
     }
 
@@ -106,9 +98,7 @@ public class ClientCommandQueue {
         return new ArrayList<>(queue);
     }
 
-    /**
-     * Clears all commands from the queue (after successful batch send).
-     */
+    /** Clears all commands from the queue (after successful batch send). */
     public void clear() {
         queue.clear();
         try {
@@ -118,11 +108,17 @@ public class ClientCommandQueue {
         }
     }
 
-    /**
-     * Persists a single command to the queue file.
-     */
+    private static final Logger logger = Logger.getLogger(ClientCommandQueue.class);
+    private static final String QUEUE_FILE_NAME = "command_queue.log";
+    private static final String SEPARATOR = " | ";
+
+    private final Path queueFilePath;
+    private final Queue<BufferedCommand> queue = new LinkedBlockingQueue<>();
+
+    /** Persists a single command to the queue file. */
     private void persistCommand(BufferedCommand cmd) {
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(queueFilePath.toFile(), true))) {
+        try (BufferedWriter writer =
+                new BufferedWriter(new FileWriter(queueFilePath.toFile(), true))) {
             String line = formatCommandLine(cmd);
             writer.append(line).append("\n");
             writer.flush();
@@ -131,11 +127,10 @@ public class ClientCommandQueue {
         }
     }
 
-    /**
-     * Formats a command for storage.
-     */
+    /** Formats a command for storage. */
     private String formatCommandLine(BufferedCommand cmd) {
-        return String.format("%s%s%s%s%d%s%d%s%s",
+        return String.format(
+                "%s%s%s%s%d%s%d%s%s",
                 cmd.getId(),
                 SEPARATOR,
                 cmd.getCommand().name(),
@@ -147,9 +142,7 @@ public class ClientCommandQueue {
                 cmd.getDragonData() != null ? cmd.getDragonData() : "NULL");
     }
 
-    /**
-     * Removes a command entry from the queue file by rewriting it.
-     */
+    /** Removes a command entry from the queue file by rewriting it. */
     private void removeCommandFromFile(BufferedCommand cmd) {
         try {
             List<String> lines = Files.readAllLines(queueFilePath);
@@ -169,9 +162,7 @@ public class ClientCommandQueue {
         }
     }
 
-    /**
-     * Loads the persisted queue from file on startup.
-     */
+    /** Loads the persisted queue from file on startup. */
     private void loadQueueFromFile() {
         if (!Files.exists(queueFilePath)) {
             System.out.println("[QUEUE] Queue file does not exist, starting with empty queue");
@@ -195,9 +186,7 @@ public class ClientCommandQueue {
         }
     }
 
-    /**
-     * Parses a command line from the queue file.
-     */
+    /** Parses a command line from the queue file. */
     private BufferedCommand parseCommandLine(String line) {
         try {
             if (line == null || line.trim().isEmpty()) {
@@ -215,7 +204,8 @@ public class ClientCommandQueue {
             int retryCount = Integer.parseInt(parts[3].trim());
             String dragonData = parts[4].trim().equals("NULL") ? null : parts[4].trim();
 
-            BufferedCommand buffered = new BufferedCommand(id, cmd, timestamp, retryCount, dragonData);
+            BufferedCommand buffered =
+                    new BufferedCommand(id, cmd, timestamp, retryCount, dragonData);
             return buffered;
         } catch (Exception e) {
             // Skip malformed lines

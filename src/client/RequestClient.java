@@ -1,5 +1,13 @@
 package client;
 
+import collection.ApiCommand;
+
+import core.Defaults;
+
+import dragon.Dragon;
+
+import org.apache.log4j.Logger;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -11,14 +19,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.stream.Stream;
 
-import org.apache.log4j.Logger;
-
-import collection.ApiCommand;
-import core.Defaults;
-import dragon.Dragon;
-
 public class RequestClient implements AutoCloseable {
-    private static final Logger logger = Logger.getLogger(RequestClient.class);
 
     public RequestClient(String host, int port) {
         this.serverHost = host;
@@ -246,4 +247,6 @@ public class RequestClient implements AutoCloseable {
     private final ClientCommandQueue commandQueue;
     private static final Duration RESPONSE_TIMEOUT = Duration.ofMillis(Defaults.RESPONSE_TIMEOUT);
     private static final int MAX_RETRIES = 3;
+
+    private static final Logger logger = Logger.getLogger(RequestClient.class);
 }

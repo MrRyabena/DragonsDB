@@ -18,19 +18,10 @@ import java.util.stream.Collectors;
 import collection.ApiCommand;
 
 /**
- * File-based implementation of Write-Ahead Log (WAL).
- * Stores command logs in a text file with format:
- * LOGID | TXNID | TIMESTAMP | COMMAND_CODE | STATUS | DRAGON_DATA
+ * File-based implementation of Write-Ahead Log (WAL). Stores command logs in a text file with
+ * format: LOGID | TXNID | TIMESTAMP | COMMAND_CODE | STATUS | DRAGON_DATA
  */
 public class FileCommandLogger implements CommandLogger {
-    private static final String LOG_FILE_NAME = "wal.log";
-    private static final String DATE_FORMAT = "yyyy-MM-dd'T'HH:mm:ss.SSS";
-    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern(DATE_FORMAT);
-    private static final String SEPARATOR = " | ";
-
-    private final Path logFilePath;
-    private long nextLogId = 1;
-    private long nextTransactionId = 1;
 
     /**
      * Creates a file-based command logger.
@@ -40,7 +31,7 @@ public class FileCommandLogger implements CommandLogger {
     public FileCommandLogger(String storageDirectory) {
         try {
             Path path = Paths.get(storageDirectory);
-            
+
             // If the path is a file, use its parent directory
             Path dir;
             if (Files.exists(path) && Files.isRegularFile(path)) {
@@ -48,28 +39,29 @@ public class FileCommandLogger implements CommandLogger {
             } else if (Files.exists(path) && Files.isDirectory(path)) {
                 dir = path;
             } else {
-                // Path doesn't exist - assume it's a directory if it has no extension, otherwise use parent
+                // Path doesn't exist - assume it's a directory if it has no extension, otherwise
+                // use parent
                 if (path.getFileName().toString().contains(".")) {
                     dir = path.getParent();
                 } else {
                     dir = path;
                 }
             }
-            
+
             // Ensure directory exists
             if (dir != null) {
                 Files.createDirectories(dir);
             } else {
                 dir = Paths.get(".");
             }
-            
+
             this.logFilePath = dir.resolve(LOG_FILE_NAME);
-            
+
             // Create file if not exists
             if (!Files.exists(logFilePath)) {
                 Files.createFile(logFilePath);
             }
-            
+
             // Initialize IDs based on existing log
             initializeIds();
         } catch (IOException e) {
@@ -77,9 +69,7 @@ public class FileCommandLogger implements CommandLogger {
         }
     }
 
-    /**
-     * Initialize log ID and transaction ID counters from existing file.
-     */
+    /** Initialize log ID and transaction ID counters from existing file. */
     private void initializeIds() {
         try (BufferedReader reader = new BufferedReader(new FileReader(logFilePath.toFile()))) {
             String line;
@@ -170,11 +160,12 @@ public class FileCommandLogger implements CommandLogger {
         }
 
         // Find pending transactions (those with PENDING commands)
-        List<Long> pendingTransactions = allLogs.stream()
-                .filter(log -> log.getStatus() == CommandLog.Status.PENDING)
-                .map(CommandLog::getTransactionId)
-                .distinct()
-                .collect(Collectors.toList());
+        List<Long> pendingTransactions =
+                allLogs.stream()
+                        .filter(log -> log.getStatus() == CommandLog.Status.PENDING)
+                        .map(CommandLog::getTransactionId)
+                        .distinct()
+                        .collect(Collectors.toList());
 
         // Return all logs for pending transactions, in reverse order
         List<CommandLog> result = new LinkedList<>();
@@ -201,11 +192,10 @@ public class FileCommandLogger implements CommandLogger {
         return nextTransactionId++;
     }
 
-    /**
-     * Appends a command log entry to the file.
-     */
+    /** Appends a command log entry to the file. */
     private void appendLogToFile(CommandLog log) {
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(logFilePath.toFile(), true))) {
+        try (BufferedWriter writer =
+                new BufferedWriter(new FileWriter(logFilePath.toFile(), true))) {
             String line = formatLogLine(log);
             writer.append(line).append("\n");
             writer.flush();
@@ -215,8 +205,8 @@ public class FileCommandLogger implements CommandLogger {
     }
 
     /**
-     * Updates the status of a log entry.
-     * This rewrites the entire file (inefficient but simple for now).
+     * Updates the status of a log entry. This rewrites the entire file (inefficient but simple for
+     * now).
      */
     private void updateLogStatus(long logId, CommandLog.Status newStatus) {
         List<CommandLog> allLogs = new ArrayList<>();
@@ -236,7 +226,8 @@ public class FileCommandLogger implements CommandLogger {
         }
 
         // Rewrite entire file
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(logFilePath.toFile(), false))) {
+        try (BufferedWriter writer =
+                new BufferedWriter(new FileWriter(logFilePath.toFile(), false))) {
             for (CommandLog log : allLogs) {
                 writer.append(formatLogLine(log)).append("\n");
             }
@@ -246,11 +237,10 @@ public class FileCommandLogger implements CommandLogger {
         }
     }
 
-    /**
-     * Formats a log line for storage.
-     */
+    /** Formats a log line for storage. */
     private String formatLogLine(CommandLog log) {
-        return String.format("%d%s%d%s%s%s%s%s%s%s%s",
+        return String.format(
+                "%d%s%d%s%s%s%s%s%s%s%s",
                 log.getLogId(),
                 SEPARATOR,
                 log.getTransactionId(),
@@ -264,15 +254,13 @@ public class FileCommandLogger implements CommandLogger {
                 log.getDragonData() != null ? log.getDragonData() : "NULL");
     }
 
-    /**
-     * Parses a log line from the file.
-     */
+    /** Parses a log line from the file. */
     private CommandLog parseLogLine(String line) {
         try {
             if (line == null || line.trim().isEmpty()) {
                 return null;
             }
-            
+
             String[] parts = line.split("\\s*\\|\\s*");
             if (parts.length < 5) {
                 return null;
@@ -283,7 +271,8 @@ public class FileCommandLogger implements CommandLogger {
             LocalDateTime timestamp = LocalDateTime.parse(parts[2].trim(), FORMATTER);
             ApiCommand command = ApiCommand.valueOf(parts[3].trim());
             CommandLog.Status status = CommandLog.Status.valueOf(parts[4].trim());
-            String dragonData = parts.length > 5 && !parts[5].trim().equals("NULL") ? parts[5].trim() : null;
+            String dragonData =
+                    parts.length > 5 && !parts[5].trim().equals("NULL") ? parts[5].trim() : null;
 
             CommandLog log = new CommandLog(txnId, logId, command, dragonData);
             log.setStatus(status);
@@ -293,4 +282,13 @@ public class FileCommandLogger implements CommandLogger {
             return null;
         }
     }
+
+    private static final String LOG_FILE_NAME = "wal.log";
+    private static final String DATE_FORMAT = "yyyy-MM-dd'T'HH:mm:ss.SSS";
+    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern(DATE_FORMAT);
+    private static final String SEPARATOR = " | ";
+
+    private final Path logFilePath;
+    private long nextLogId = 1;
+    private long nextTransactionId = 1;
 }

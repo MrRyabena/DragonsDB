@@ -8,10 +8,7 @@ import java.util.Deque;
  * Tracks nested transactions and handles commit/rollback.
  */
 public class TransactionManager {
-    private final CommandLogger logger;
-    private final Deque<Long> transactionStack = new ArrayDeque<>();
-    private long currentTransactionId = 0;
-
+  
     public TransactionManager(CommandLogger logger) {
         this.logger = logger;
     }
@@ -86,4 +83,8 @@ public class TransactionManager {
     public int getTransactionDepth() {
         return transactionStack.size();
     }
+
+    private final CommandLogger logger;
+    private final Deque<Long> transactionStack = new ArrayDeque<>();
+    private long currentTransactionId = 0;
 }

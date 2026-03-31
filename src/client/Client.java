@@ -11,7 +11,6 @@ import ui.TextUIHandler;
 import ui.UI;
 
 public class Client {
-    private static final Logger logger = Logger.getLogger(Client.class);
     public static void main(String[] args) {
         String serverHost = null;
         String serverPort = null;
@@ -26,10 +25,16 @@ public class Client {
 
         if (serverHost == null) {
             serverHost = core.Defaults.SERVER_HOST;
-            logger.warn("Environment variable SERVER_HOST not found! Using default: \"" + serverHost + "\"");
+            logger.warn(
+                    "Environment variable SERVER_HOST not found! Using default: \""
+                            + serverHost
+                            + "\"");
         }
         if (serverPort == null) {
-            logger.warn("Environment variable SERVER_PORT not found! Using default: \"" + core.Defaults.SERVER_PORT + "\"");
+            logger.warn(
+                    "Environment variable SERVER_PORT not found! Using default: \""
+                            + core.Defaults.SERVER_PORT
+                            + "\"");
         } else {
 
             try {
@@ -38,7 +43,7 @@ public class Client {
                 logger.warn("Invalid SERVER_PORT, using default: " + port);
             }
         }
-        
+
         // Create a single RequestClient instance to be shared across all components
         RequestClient requestClient;
         try {
@@ -48,11 +53,11 @@ public class Client {
             logger.warn("Failed to initialize request client: " + e.getMessage());
             requestClient = null;
         }
-        
+
         // Pass the shared RequestClient to RemoteCollection and RemoteStorage
         RemoteCollection collection;
         RemoteStorage storage;
-        
+
         if (requestClient != null) {
             collection = new RemoteCollection(requestClient);
             storage = new RemoteStorage(requestClient);
@@ -61,10 +66,10 @@ public class Client {
             collection = new RemoteCollection();
             storage = new RemoteStorage();
         }
-        
+
         var ui = new UI(collection, storage, new OutputStreamWriter(System.out));
         var textUiHandler = new TextUIHandler(ui);
-        
+
         // Pass the same RequestClient to TextUIHandler for buffering support
         if (requestClient != null) {
             textUiHandler.setRequestClient(requestClient);
@@ -72,4 +77,6 @@ public class Client {
 
         textUiHandler.run();
     }
+
+    private static final Logger logger = Logger.getLogger(Client.class);
 }

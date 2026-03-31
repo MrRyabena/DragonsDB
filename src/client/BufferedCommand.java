@@ -1,20 +1,12 @@
 package client;
 
-import collection.ApiCommand;
 import java.io.Serializable;
 import java.util.Objects;
 
-/**
- * Represents a command buffered on the client while waiting for server availability.
- */
-public class BufferedCommand implements Serializable {
-    private static final long serialVersionUID = 1L;
+import collection.ApiCommand;
 
-    private final String id;
-    private final ApiCommand command;
-    private final String dragonData;  // Serialized dragon data
-    private final long timestamp;
-    private int retryCount = 0;
+/** Represents a command buffered on the client while waiting for server availability. */
+public class BufferedCommand implements Serializable {
 
     public BufferedCommand(ApiCommand command, String dragonData) {
         this.id = java.util.UUID.randomUUID().toString();
@@ -23,7 +15,8 @@ public class BufferedCommand implements Serializable {
         this.timestamp = System.currentTimeMillis();
     }
 
-    public BufferedCommand(String id, ApiCommand command, long timestamp, int retryCount, String dragonData) {
+    public BufferedCommand(
+            String id, ApiCommand command, long timestamp, int retryCount, String dragonData) {
         this.id = Objects.requireNonNull(id);
         this.command = Objects.requireNonNull(command);
         this.timestamp = timestamp;
@@ -61,7 +54,16 @@ public class BufferedCommand implements Serializable {
 
     @Override
     public String toString() {
-        return String.format("BufferedCommand{id=%s, cmd=%s, retries=%d, age=%dms}",
+        return String.format(
+                "BufferedCommand{id=%s, cmd=%s, retries=%d, age=%dms}",
                 id, command.name(), retryCount, System.currentTimeMillis() - timestamp);
     }
+
+    private static final long serialVersionUID = 1L;
+
+    private final String id;
+    private final ApiCommand command;
+    private final String dragonData; // Serialized dragon data
+    private final long timestamp;
+    private int retryCount = 0;
 }
