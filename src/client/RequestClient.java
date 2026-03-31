@@ -14,6 +14,7 @@ import java.util.stream.Stream;
 import org.apache.log4j.Logger;
 
 import collection.ApiCommand;
+import core.Defaults;
 import dragon.Dragon;
 
 public class RequestClient implements AutoCloseable {
@@ -42,10 +43,16 @@ public class RequestClient implements AutoCloseable {
             try {
                 int flushed = flushBufferedCommands();
                 if (flushed > 0) {
-                    logger.info("Flushed " + flushed + " buffered commands before processing: " + command);
+                    logger.info(
+                            "Flushed "
+                                    + flushed
+                                    + " buffered commands before processing: "
+                                    + command);
                 }
             } catch (Exception e) {
-                logger.warn("Unable to flush queued commands before sending current command: " + e.getMessage());
+                logger.warn(
+                        "Unable to flush queued commands before sending current command: "
+                                + e.getMessage());
             }
         }
 
@@ -53,19 +60,29 @@ public class RequestClient implements AutoCloseable {
             // Try to send directly to server
             return sendDirect(command, dragons);
         } catch (IOException e) {
-            logger.info("Server unavailable, buffering command: " + command);
-            commandQueue.enqueue(command, dragonData);
-            return new byte[0];
+            if (isBufferableCommand(command)) {
+                logger.info("Server unavailable, buffering command: " + command);
+                commandQueue.enqueue(command, dragonData);
+                return new byte[0];
+            } else {
+                throw new IllegalStateException("Server unavailable");
+            }
         }
     }
 
-    /**
-     * Sends a command directly to the server.
-     */
+    private boolean isBufferableCommand(ApiCommand command) {
+        return switch (command) {
+            case ADD, UPDATE_BY_ID, CLEAR, REMOVE_IF -> true;
+            case GET_STREAM, COUNT_IF -> false;
+        };
+    }
+
+    /** Sends a command directly to the server. */
     private byte[] sendDirect(ApiCommand command, List<Dragon> dragons) throws IOException {
         byte[] payload = encode(command, dragons);
         InetAddress serverIp = InetAddress.getByName(serverHost);
-        DatagramPacket sendPacket = new DatagramPacket(payload, payload.length, serverIp, serverPort);
+        DatagramPacket sendPacket =
+                new DatagramPacket(payload, payload.length, serverIp, serverPort);
         socket.send(sendPacket);
 
         byte[] receiveData = new byte[64 * 1024];
@@ -78,8 +95,8 @@ public class RequestClient implements AutoCloseable {
     }
 
     /**
-     * Attempts to flush all buffered commands to the server.
-     * Returns the number of successfully sent commands.
+     * Attempts to flush all buffered commands to the server. Returns the number of successfully
+     * sent commands.
      */
     public int flushBufferedCommands() {
         if (commandQueue.isEmpty()) {
@@ -94,8 +111,13 @@ public class RequestClient implements AutoCloseable {
         while (!commandQueue.isEmpty()) {
             BufferedCommand buffered = commandQueue.peek();
             try {
-                logger.debug("Sending buffered: " + buffered.getCommand() + " (attempt " + (buffered.getRetryCount() + 1) + ")");
-                
+                logger.debug(
+                        "Sending buffered: "
+                                + buffered.getCommand()
+                                + " (attempt "
+                                + (buffered.getRetryCount() + 1)
+                                + ")");
+
                 List<Dragon> dragons = List.of();
                 if (buffered.getDragonData() != null) {
                     try {
@@ -106,9 +128,9 @@ public class RequestClient implements AutoCloseable {
                         dragons = List.of();
                     }
                 }
-                
+
                 byte[] response = sendDirect(buffered.getCommand(), dragons);
-                
+
                 commandQueue.dequeue(); // Remove from queue after success
                 sent++;
                 logger.info("Successfully sent buffered command: " + buffered.getCommand());
@@ -118,7 +140,12 @@ public class RequestClient implements AutoCloseable {
                 logger.warn("Server still unavailable, stopping flush");
                 break;
             } catch (Exception e) {
-                logger.error("Unexpected error while flushing: " + e.getClass().getName() + ": " + e.getMessage(), e);
+                logger.error(
+                        "Unexpected error while flushing: "
+                                + e.getClass().getName()
+                                + ": "
+                                + e.getMessage(),
+                        e);
                 buffered.incrementRetryCount();
                 if (buffered.getRetryCount() > MAX_RETRIES) {
                     commandQueue.dequeue();
@@ -129,13 +156,20 @@ public class RequestClient implements AutoCloseable {
             }
         }
 
-        logger.info("Flush complete: " + sent + " sent, " + failed + " failed, " + 
-            commandQueue.size() + " remaining in queue");
+        logger.info(
+                "Flush complete: "
+                        + sent
+                        + " sent, "
+                        + failed
+                        + " failed, "
+                        + commandQueue.size()
+                        + " remaining in queue");
         return sent;
     }
 
     private byte[] encode(ApiCommand command, List<Dragon> dragons) throws IOException {
-        try (var baos = new ByteArrayOutputStream(); var oos = new ObjectOutputStream(baos)) {
+        try (var baos = new ByteArrayOutputStream();
+                var oos = new ObjectOutputStream(baos)) {
             oos.writeObject(command);
             for (Dragon dragon : dragons) {
                 oos.writeObject(dragon);
@@ -143,7 +177,8 @@ public class RequestClient implements AutoCloseable {
             oos.flush();
             return baos.toByteArray();
         } catch (IOException e) {
-            throw new IllegalStateException("Failed to encode request payload: " + e.getMessage(), e);
+            throw new IllegalStateException(
+                    "Failed to encode request payload: " + e.getMessage(), e);
         }
     }
 
@@ -157,9 +192,7 @@ public class RequestClient implements AutoCloseable {
         return baos;
     }
 
-    /**
-     * Returns the number of buffered commands waiting to be sent.
-     */
+    /** Returns the number of buffered commands waiting to be sent. */
     public int getBufferedCommandCount() {
         return commandQueue.size();
     }
@@ -171,9 +204,7 @@ public class RequestClient implements AutoCloseable {
         }
     }
 
-    /**
-     * Serializes a list of dragons to a string.
-     */
+    /** Serializes a list of dragons to a string. */
     private String serializeDragons(List<Dragon> dragons) {
         if (dragons == null || dragons.isEmpty()) {
             return null;
@@ -192,9 +223,7 @@ public class RequestClient implements AutoCloseable {
         }
     }
 
-    /**
-     * Deserializes dragons from a string.
-     */
+    /** Deserializes dragons from a string. */
     private List<Dragon> deserializeDragons(String data) {
         try {
             byte[] bytes = java.util.Base64.getDecoder().decode(data);
@@ -215,6 +244,6 @@ public class RequestClient implements AutoCloseable {
     private final int serverPort;
     private final DatagramSocket socket;
     private final ClientCommandQueue commandQueue;
-    private static final Duration RESPONSE_TIMEOUT = Duration.ofSeconds(3);
+    private static final Duration RESPONSE_TIMEOUT = Duration.ofMillis(Defaults.RESPONSE_TIMEOUT);
     private static final int MAX_RETRIES = 3;
 }
