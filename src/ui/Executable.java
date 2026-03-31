@@ -1,8 +1,7 @@
 package ui;
 
-/**
- * Functional interface representing a command handler.
- */
+/** Functional interface representing a command handler. */
+@FunctionalInterface
 public interface Executable {
 
     /**
@@ -12,5 +11,4 @@ public interface Executable {
      * @param ui UI context
      */
     void execute(Command command, UI ui);
-
 }
