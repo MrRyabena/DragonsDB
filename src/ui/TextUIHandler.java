@@ -4,9 +4,7 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.io.OutputStreamWriter;
-import java.io.WriteAbortedException;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -99,6 +97,9 @@ public class TextUIHandler implements Runnable {
     /** Primary reader for interactive stdin. */
     private BufferedReader in;
 
+    /** Client for server communication with buffering support. */
+    private client.RequestClient requestClient;
+
     /** Stack of active readers (stdin + nested script readers). */
     private final Deque<BufferedReader> readers;
 
@@ -118,6 +119,16 @@ public class TextUIHandler implements Runnable {
      */
     public void setOutputStream(OutputStreamWriter out) {
         this.out = out;
+    }
+
+    /**
+     * Sets the request client for server communication.
+     *
+     * @param requestClient the client instance
+     */
+    public void setRequestClient(client.RequestClient requestClient) {
+        this.requestClient = requestClient;
+        System.out.println("[HANDLER] RequestClient set successfully");
     }
 
     /**
@@ -159,6 +170,30 @@ public class TextUIHandler implements Runnable {
         if (readers.size() <= 2) {
             ui.setOutputWriter(new OutputStreamWriter(System.out));
             this.out = new OutputStreamWriter(System.out);
+            
+            // Try to flush buffered commands when returning to interactive mode
+            if (requestClient != null) {
+                System.out.println("[CLIENT] Flushing buffered commands after script...");
+                try {
+                    int flushed = requestClient.flushBufferedCommands();
+                    if (flushed > 0) {
+                        out.write(String.format("[CLIENT] Successfully flushed %d buffered commands after script execution.%n", flushed));
+                        out.flush();
+                    } else {
+                        System.out.println("[CLIENT] No buffered commands to flush.");
+                    }
+                } catch (Exception e) {
+                    System.err.println("[CLIENT] Exception during flush: " + e.getClass().getName() + ": " + e.getMessage());
+                    e.printStackTrace();
+                    try {
+                        out.write("[CLIENT] Failed to flush buffered commands: " + e.getMessage() + "\n");
+                        out.flush();
+                    } catch (IOException ignored) {
+                    }
+                }
+            } else {
+                System.out.println("[CLIENT] RequestClient is null, cannot flush.");
+            }
         }
 
         var reader = readers.pop();
@@ -364,17 +399,12 @@ public class TextUIHandler implements Runnable {
         }
 
         try {
+            System.out.println("Executing script: " + path);
             var br = new BufferedReader(new FileReader(path.toFile()));
             readers.push(br);
             openScripts.push(path);
             ui.setOutputWriter(OutputStreamWriter.nullWriter());
-            try {
-                out.write(String.format("Executing script: %s%n", path));
-                out.flush();
-                this.out = OutputStreamWriter.nullWriter();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            this.out = OutputStreamWriter.nullWriter();
         } catch (IOException e) {
             throw new IllegalArgumentException("Failed to open script: " + path);
         }

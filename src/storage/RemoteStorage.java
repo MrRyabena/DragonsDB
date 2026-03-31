@@ -1,12 +1,14 @@
 package storage;
 
-import collection.RemoteCollection;
-import core.Defaults;
-import dragon.view.JsonView;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Date;
+
+import client.RequestClient;
+import collection.RemoteCollection;
+import core.Defaults;
+import dragon.view.JsonView;
 
 public class RemoteStorage implements Storage {
 
@@ -16,6 +18,16 @@ public class RemoteStorage implements Storage {
 
     public RemoteStorage(String host, int port) {
         this.collection = new RemoteCollection(host, port);
+        this.isOwnerOfCollection = true;
+    }
+
+    /**
+     * Creates a remote storage using an existing RequestClient.
+     * The client is NOT closed when this storage is closed.
+     */
+    public RemoteStorage(RequestClient existingClient) {
+        this.collection = new RemoteCollection(existingClient);
+        this.isOwnerOfCollection = false;
     }
 
     @Override
@@ -54,4 +66,5 @@ public class RemoteStorage implements Storage {
     }
 
     private final RemoteCollection collection;
+    private final boolean isOwnerOfCollection;
 }

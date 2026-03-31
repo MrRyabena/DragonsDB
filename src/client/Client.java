@@ -1,9 +1,9 @@
 package client;
 
-import collection.RemoteCollection;
 import java.io.OutputStreamWriter;
 import java.nio.file.InvalidPathException;
 
+import collection.RemoteCollection;
 import storage.RemoteStorage;
 import ui.TextUIHandler;
 import ui.UI;
@@ -12,9 +12,11 @@ public class Client {
     public static void main(String[] args) {
         String serverHost = null;
         String serverPort = null;
+        int port = core.Defaults.SERVER_PORT;
+
         try {
             serverHost = System.getenv("SERVER_HOST");
-            serverPort = System.getenv("serverPort");
+            serverPort = System.getenv("SERVER_PORT");
         } catch (InvalidPathException e) {
             e.printStackTrace();
         }
@@ -22,20 +24,53 @@ public class Client {
         if (serverHost == null) {
             serverHost = core.Defaults.SERVER_HOST;
             System.err.printf(
-                    "Environment variable STORAGE_PATH not found! Using default path: \"%s\"\n",
+                    "Environment variable SERVER_HOST not found! Using default: \"%s\"\n",
                     serverHost);
         }
         if (serverPort == null) {
-            serverPort = core.Defaults.SERVER_HOST;
             System.err.printf(
-                    "Environment variable STORAGE_PATH not found! Using default path: \"%s\"\n",
-                    serverPort);
-        }
+                    "Environment variable SERVER_PORT not found! Using default: \"%d\"\n",
+                    core.Defaults.SERVER_PORT);
+        } else {
 
-        var collection = new RemoteCollection();
-        var storage = new RemoteStorage();
+            try {
+                port = Integer.parseInt(serverPort);
+            } catch (NumberFormatException e) {
+                System.err.println("Invalid SERVER_PORT, using default: " + port);
+            }
+        }
+        
+        // Create a single RequestClient instance to be shared across all components
+        RequestClient requestClient;
+        try {
+            requestClient = new RequestClient(serverHost, port);
+            System.out.println("[CLIENT] Connected to server at " + serverHost + ":" + port);
+        } catch (Exception e) {
+            System.err.println("[CLIENT] Warning: Failed to initialize request client: " + e.getMessage());
+            requestClient = null;
+        }
+        
+        // Pass the shared RequestClient to RemoteCollection and RemoteStorage
+        RemoteCollection collection;
+        RemoteStorage storage;
+        
+        if (requestClient != null) {
+            collection = new RemoteCollection(requestClient);
+            storage = new RemoteStorage(requestClient);
+        } else {
+            // Fallback to default constructors if RequestClient initialization failed
+            collection = new RemoteCollection();
+            storage = new RemoteStorage();
+        }
+        
         var ui = new UI(collection, storage, new OutputStreamWriter(System.out));
         var textUiHandler = new TextUIHandler(ui);
+        
+        // Pass the same RequestClient to TextUIHandler for buffering support
+        if (requestClient != null) {
+            textUiHandler.setRequestClient(requestClient);
+        }
+
         textUiHandler.run();
     }
 }
