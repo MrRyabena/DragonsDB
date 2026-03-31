@@ -36,6 +36,14 @@
     <build>
         <sourceDirectory>../src</sourceDirectory>
         <outputDirectory>build/classes</outputDirectory>
+        <resources>
+            <resource>
+                <directory>../src</directory>
+                <includes>
+                    <include>log4j.properties</include>
+                </includes>
+            </resource>
+        </resources>
 
         <plugins>
             <plugin>
