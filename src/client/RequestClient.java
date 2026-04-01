@@ -1,9 +1,11 @@
 package client;
 
 import core.Defaults;
+
 import org.apache.log4j.Logger;
 
 import java.io.ByteArrayOutputStream;
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.net.DatagramPacket;
@@ -15,7 +17,7 @@ import java.time.Duration;
  * Simplified UDP client for sending commands to the server.
  * Converts command strings and script content into serialized packets and handles responses.
  */
-public class RequestClient implements AutoCloseable {
+public class RequestClient implements Closeable, AutoCloseable {
 
     public RequestClient(String host, int port) {
         this.serverHost = host;
@@ -48,27 +50,12 @@ public class RequestClient implements AutoCloseable {
         }
     }
 
-    /**
-     * Sends a script file content to the server and returns the response.
-     *
-     * @param scriptContent the full script content to execute
-     * @return the server's response as bytes
-     */
-    public byte[] sendScript(String scriptContent) {
-        logger.debug("Sending script with " + scriptContent.split("\n").length + " lines");
-        try {
-            return sendDirectScript(scriptContent);
-        } catch (IOException e) {
-            logger.error("Failed to send script: " + e.getMessage(), e);
-            throw new IllegalStateException("Server unavailable", e);
-        }
-    }
 
     /**
      * Sends a command directly to the server via UDP.
      */
-    private byte[] sendDirect(String commandLine) throws IOException {
-        byte[] payload = encode(commandLine);
+    private byte[] sendDirect(String line) throws IOException {
+        byte[] payload = encode(line);
         logger.debug("Encoded payload size: " + payload.length + " bytes");
         
         InetAddress serverIp = InetAddress.getByName(serverHost);
@@ -86,27 +73,6 @@ public class RequestClient implements AutoCloseable {
         return response;
     }
 
-    /**
-     * Sends a script directly to the server via UDP.
-     */
-    private byte[] sendDirectScript(String scriptContent) throws IOException {
-        byte[] payload = encodeScript(scriptContent);
-        logger.debug("Encoded script payload size: " + payload.length + " bytes");
-        
-        InetAddress serverIp = InetAddress.getByName(serverHost);
-        DatagramPacket sendPacket = new DatagramPacket(payload, payload.length, serverIp, serverPort);
-        socket.send(sendPacket);
-        logger.debug("Script packet sent to " + serverHost + ":" + serverPort);
-
-        byte[] receiveData = new byte[64 * 1024];
-        DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
-        socket.receive(receivePacket);
-        logger.debug("Received " + receivePacket.getLength() + " bytes from server");
-
-        byte[] response = new byte[receivePacket.getLength()];
-        System.arraycopy(receiveData, 0, response, 0, receivePacket.getLength());
-        return response;
-    }
 
     /**
      * Encodes a command line as a serialized object.
@@ -123,21 +89,6 @@ public class RequestClient implements AutoCloseable {
         }
     }
 
-    /**
-     * Encodes a script content as a serialized object with "execute_script" marker.
-     */
-    private byte[] encodeScript(String scriptContent) throws IOException {
-        try (var baos = new ByteArrayOutputStream();
-             var oos = new ObjectOutputStream(baos)) {
-            oos.writeObject("execute_script");
-            oos.writeObject(scriptContent);
-            oos.flush();
-            return baos.toByteArray();
-        } catch (IOException e) {
-            logger.error("Failed to encode script: " + e.getMessage(), e);
-            throw new IllegalStateException("Failed to encode script payload: " + e.getMessage(), e);
-        }
-    }
 
     @Override
     public void close() {

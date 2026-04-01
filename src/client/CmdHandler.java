@@ -1,5 +1,7 @@
 package client;
 
+import org.apache.log4j.Logger;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -9,26 +11,24 @@ import java.nio.file.Paths;
 import java.util.ArrayDeque;
 import java.util.Deque;
 
-import org.apache.log4j.Logger;
-
-import client.RequestClient;
-
 public class CmdHandler implements Runnable {
 
     public CmdHandler(RequestClient requestClient) {
         this.requestClient = requestClient;
+        readers.push(new BufferedReader(new InputStreamReader(System.in)));
     }
 
     @Override
     public void run() {
-        System.out.println("Welcome to the Dragon database client!");
-        System.out.println("Type commands or 'exit' to quit.");
-
         while (true) {
             try {
-                System.out.print("> ");
-                String line = in.readLine();
-                if (line == null) break;
+                String line = readers.peek().readLine();
+                if (line == null) {
+                    if (!closeCurrentScriptIfAny()) {
+                        return;
+                    }
+                    continue;
+                }
                 line = line.trim();
                 if (line.isEmpty()) continue;
 
@@ -37,7 +37,7 @@ public class CmdHandler implements Runnable {
                 if (line.startsWith("execute_script")) {
                     handleExecuteScript(line);
                 } else {
-                    sendCommand(line);
+                    sendInput(line);
                 }
             } catch (IOException e) {
                 logger.error(e.getStackTrace());
@@ -45,13 +45,24 @@ public class CmdHandler implements Runnable {
         }
     }
 
-    private void sendCommand(String commandLine) {
+    private boolean closeCurrentScriptIfAny() {
+        if (readers.size() <= 1) {
+            return false;
+        }
+
+        BufferedReader reader = readers.pop();
         try {
-            byte[] response = requestClient.send(commandLine);
-            String responseStr = new String(response, core.Defaults.CHARSET);
-            System.out.println(responseStr);
+            reader.close();
+        } catch (IOException e) {
+        }
+        return true;
+    }
+
+    private void sendInput(String line) {
+        try {
+            byte[] response = requestClient.send(line);
+            System.out.println(new String(response, core.Defaults.CHARSET));
         } catch (Exception e) {
-            System.err.println("Error: " + e.getMessage());
         }
     }
 
@@ -81,24 +92,19 @@ public class CmdHandler implements Runnable {
             return;
         }
 
-        if (openScripts.size() >= MAX_SCRIPT_DEPTH) {
+        if (readers.size() >= MAX_SCRIPT_DEPTH) {
             System.err.println("Maximum script recursion depth reached: " + MAX_SCRIPT_DEPTH);
             return;
         }
 
-        if (openScripts.contains(path)) {
+        if (readers.contains(path)) {
             System.err.println("Recursion detected: script is already being executed: " + path);
             return;
         }
 
         try {
-            String content = Files.readString(path);
-            openScripts.push(path);
             System.out.println("Executing script: " + path);
-            byte[] response = requestClient.sendScript(content);
-            String responseStr = new String(response, core.Defaults.CHARSET);
-            System.out.println(responseStr);
-            openScripts.pop();
+            readers.push(Files.newBufferedReader(path));
         } catch (Exception e) {
             System.err.println("Failed to execute script: " + e.getMessage());
         }
@@ -115,7 +121,6 @@ public class CmdHandler implements Runnable {
 
     private static final Logger logger = Logger.getLogger(CmdHandler.class);
     private static final int MAX_SCRIPT_DEPTH = 5;
-    private RequestClient requestClient;
-    private final Deque<Path> openScripts = new ArrayDeque<>();
-    private final BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
+    private final RequestClient requestClient;
+    private final Deque<BufferedReader> readers = new ArrayDeque<>();
 }
