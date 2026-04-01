@@ -21,8 +21,19 @@ import dragon.Dragon;
 public class JsonView implements View {
     private static final Logger logger = Logger.getLogger(JsonView.class);
 
-    /** Gson instance configured for pretty printing. */
-    private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    /** Gson instance configured for pretty printing and LocalDateTime support. */
+    private final Gson gson = new GsonBuilder()
+            .setPrettyPrinting()
+            .registerTypeAdapter(
+                    java.time.LocalDateTime.class,
+                    (com.google.gson.JsonSerializer<java.time.LocalDateTime>)
+                            (src, typeOfSrc, context) ->
+                                    new com.google.gson.JsonPrimitive(src.toString()))
+            .registerTypeAdapter(
+                    java.time.LocalDateTime.class,
+                    (com.google.gson.JsonDeserializer<java.time.LocalDateTime>)
+                            (json, typeOfT, context) -> java.time.LocalDateTime.parse(json.getAsString()))
+            .create();
 
     /**
      * Serializes a stream of dragons to JSON.
