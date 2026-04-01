@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                             http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.example</groupId>
+        <artifactId>DragonsDB-parent</artifactId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>common</artifactId>
+    <packaging>jar</packaging>
+
+    <name>DragonsDB Common</name>
+    <description>Common classes for DragonsDB (dragon, core, collection, storage, ui)</description>
+
+    <build>
+        <sourceDirectory>../../src</sourceDirectory>
+        <outputDirectory>../build/classes-common</outputDirectory>
+        <resources>
+            <resource>
+                <directory>../../src</directory>
+                <includes>
+                    <include>log4j.properties</include>
+                </includes>
+            </resource>
+        </resources>
+
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <includes>
+                        <include>dragon/**/*.java</include>
+                        <include>core/**/*.java</include>
+                        <include>collection/**/*.java</include>
+                        <include>storage/**/*.java</include>
+                        <include>ui/**/*.java</include>
+                    </includes>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <finalName>DragonsDB-common</finalName>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
