@@ -10,8 +10,9 @@ import dragon.Dragon;
 public class ServerContext {
     public SocketAddress clientAddress;
     public ByteBuffer requestData;
-    public ApiCommand command;
+    public String commandLine;
     public Stream<Dragon> stream;
+    public String scriptContent;
     public ByteBuffer response;
 
     public ServerContext() {
