@@ -20,6 +20,37 @@ package core {
   }
 
   class BadDataException extends RuntimeException
+
+  class Request <<Serializable>> {
+    enum Status {INIT, COMMAND, PARAMETER_RESPONSE, GET_SCRIPT}
+    +status : Status
+    +command : String
+    +parameterValue : String
+    +sessionId : long
+    +{static} command(text: String) : Request
+    +{static} parameterResponse(sessionId: long, value: String) : Request
+  }
+
+  class Response <<Serializable>> {
+    enum Status {SUCCESS, ERROR, NEED_PARAMETER}
+    +status : Status
+    +data : List<Dragon>
+    +message : String
+    +parameterRequest : ParameterRequest
+    +sessionId : long
+    +{static} success(dragons: List, msg: String) : Response
+    +{static} error(msg: String) : Response
+    +{static} needParameter(sessionId: long, param: ParameterRequest) : Response
+  }
+
+  class ParameterRequest <<Serializable>> {
+    enum ParameterType {STRING, INTEGER, LONG, FLOAT, DRAGON_TYPE, DRAGON, ID}
+    +parameterName : String
+    +prompt : String
+    +type : ParameterType
+    +required : boolean
+    +ParameterRequest(name, prompt, type, required)
+  }
 }
 
 package dragon {
@@ -157,27 +188,70 @@ package server {
     +getChannel() : DatagramChannel
   }
 
-  class RequestReader {
+  class RequestReader <<Consumer>> {
     +RequestReader()
     +accept(context: ServerContext) : void
   }
 
-  class ResponseSender {
+  class ResponseSender <<Consumer>> {
     +ResponseSender(channel: DatagramChannel)
     +accept(context: ServerContext) : void
   }
 
-  class ServerContext {
-    +command : ApiCommand
-    +stream : Stream<Dragon>
-    +response : ByteBuffer
-    +address : SocketAddress
-  }
-
-  class CommandsHandler {
-    +CommandsHandler(collection: API, storage: Storage, commandLogger: CommandLogger, transactionManager: TransactionManager)
+  class ResponsePacker <<Consumer>> {
+    +ResponsePacker()
     +accept(context: ServerContext) : void
   }
+
+  class ServerContext {
+    +clientAddress : SocketAddress
+    +requestData : ByteBuffer
+    +request : Request
+    +response : Response
+    +responseData : ByteBuffer
+    +sessionId : long
+  }
+
+  class CommandsHandler <<Consumer>> {
+    +CommandsHandler(collection, storage, commandLogger, transactionManager)
+    +handleRequest(context: ServerContext) : void
+    -handleNewCommand(session, context) : void
+    -handleParameterResponse(session, context) : void
+    -executeCommand(session, context, args) : void
+    -getRequiredParameters(command, args) : List<ParameterRequest>
+    -parseParameter(type, value) : Object
+    -createDragon(...) : Dragon
+    -setDragonId(dragon, id) : void
+    -commandsToApiCommand(cmd) : ApiCommand
+  }
+
+  class ClientSession {
+    -sessionId : long
+    -clientAddress : SocketAddress
+    -currentCommand : Commands
+    -pendingParameters : Queue<ParameterRequest>
+    -collectedParameters : Map<String, Object>
+    +ClientSession(clientAddress: SocketAddress)
+    +getSessionId() : long
+    +getCurrentCommand() : Commands
+    +setCurrentCommand(command: Commands) : void
+    +peekNextParameter() : ParameterRequest
+    +pollNextParameter() : ParameterRequest
+    +addParameterRequest(param) : void
+    +addParameter(name, value) : void
+    +hasMoreParameters() : boolean
+    +clearDialog() : void
+  }
+
+  class SessionManager {
+    -sessions : Map<SocketAddress, ClientSession>
+    -cleanupTimer : Timer
+    +SessionManager()
+    +getOrCreateSession(address: SocketAddress) : ClientSession
+    +removeSession(address: SocketAddress) : void
+    -cleanupExpiredSessions() : void
+  }
+
 }
 
 ' --- Relationships ---
@@ -190,12 +264,16 @@ package server {
 "storage.FileCommandLogger" ..|> "storage.CommandLogger"
 "dragon.view.JsonView" ..|> "dragon.view.View"
 
+"core.Response" --> "core.ParameterRequest"
+"core.Response" --> "dragon.Dragon"
+
 "server.Server" --> "storage.FileStorage"
 "server.Server" --> "dragon.view.JsonView"
 "server.Server" --> "collection.Collection"
 "server.Server" --> "server.ConnectionHandler"
 "server.Server" --> "server.RequestReader"
 "server.Server" --> "server.CommandsHandler"
+"server.Server" --> "server.ResponsePacker"
 "server.Server" --> "server.ResponseSender"
 "server.Server" --> "storage.FileCommandLogger"
 "server.Server" --> "storage.TransactionManager"
@@ -203,12 +281,24 @@ package server {
 
 "server.ConnectionHandler" --> "server.ServerContext"
 "server.RequestReader" --> "server.ServerContext"
+"server.RequestReader" --> "core.Request"
+"server.ResponsePacker" --> "server.ServerContext"
+"server.ResponsePacker" --> "core.Response"
 "server.ResponseSender" --> "server.ServerContext"
+
 "server.CommandsHandler" --> "server.ServerContext"
+"server.CommandsHandler" --> "server.SessionManager"
+"server.CommandsHandler" --> "server.ClientSession"
+"server.CommandsHandler" --> "core.ParameterRequest"
 "server.CommandsHandler" --> "collection.API"
 "server.CommandsHandler" --> "storage.Storage"
 "server.CommandsHandler" --> "storage.CommandLogger"
 "server.CommandsHandler" --> "storage.TransactionManager"
+"server.CommandsHandler" --> "core.Request"
+"server.CommandsHandler" --> "core.Response"
+
+"server.SessionManager" --> "server.ClientSession"
+"server.ClientSession" --> "core.ParameterRequest"
 
 "storage.TransactionManager" --> "storage.CommandLogger"
 "storage.RecoveryManager" --> "storage.CommandLogger"

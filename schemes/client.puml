@@ -20,7 +20,36 @@ package core {
     +setXY(x: Float, y: Float) : void
   }
 
-  class BadDataException extends RuntimeException
+  class Request <<Serializable>> {
+    enum Status {INIT, COMMAND, PARAMETER_RESPONSE, GET_SCRIPT}
+    +status : Status
+    +command : String
+    +parameterValue : String
+    +sessionId : long
+    +{static} command(text: String) : Request
+    +{static} parameterResponse(sessionId: long, value: String) : Request
+  }
+
+  class Response <<Serializable>> {
+    enum Status {SUCCESS, ERROR, NEED_PARAMETER}
+    +status : Status
+    +data : List<Dragon>
+    +message : String
+    +parameterRequest : ParameterRequest
+    +sessionId : long
+    +{static} success(dragons: List, msg: String) : Response
+    +{static} error(msg: String) : Response
+    +{static} needParameter(sessionId: long, param: ParameterRequest) : Response
+  }
+
+  class ParameterRequest <<Serializable>> {
+    enum ParameterType {STRING, INTEGER, LONG, FLOAT, DRAGON_TYPE, DRAGON, ID}
+    +parameterName : String
+    +prompt : String
+    +type : ParameterType
+    +required : boolean
+    +ParameterRequest(name, prompt, type, required)
+  }
 }
 
 package dragon {
@@ -82,51 +111,6 @@ package "dragon.view" {
   }
 }
 
-package collection {
-  interface API {
-    +add(element: Dragon) : void
-    +add(elements: Stream<Dragon>) : void
-    +updateById(element: Dragon) : void
-    +clear() : void
-    +getStream() : Stream<Dragon>
-    +removeIf(filter: Predicate<Dragon>) : void
-    +countIf(filter: Predicate<Dragon>) : int
-  }
-
-  class RemoteCollection {
-    -client : RequestClient
-    +RemoteCollection()
-    +RemoteCollection(host: String, port: int)
-    +RemoteCollection(client: RequestClient)
-    +add(element: Dragon) : void
-    +add(elements: Stream<Dragon>) : void
-    +updateById(element: Dragon) : void
-    +clear() : void
-    +getStream() : Stream<Dragon>
-    +removeIf(filter: Predicate<Dragon>) : void
-    +countIf(filter: Predicate<Dragon>) : int
-  }
-}
-
-package storage {
-  interface Storage {
-    +save(stream: InputStream) : void
-    +load() : OutputStream
-    +getDateCreated() : Date
-    +getDateModified() : Date
-  }
-
-  class RemoteStorage {
-    +RemoteStorage()
-    +RemoteStorage(host: String, port: int)
-    +RemoteStorage(client: RequestClient)
-    +save(stream: InputStream) : void
-    +load() : OutputStream
-    +getDateCreated() : Date
-    +getDateModified() : Date
-  }
-}
-
 package client {
   class Client {
     +{static} main(args: String[]) : void
@@ -136,122 +120,44 @@ package client {
     -serverHost : String
     -serverPort : int
     -socket : DatagramSocket
-    -commandQueue : ClientCommandQueue
     +RequestClient(host: String, port: int)
-    +send(command: ApiCommand, stream: Stream<Dragon>) : byte[]
-    +flushBufferedCommands() : int
+    +sendRequest(request: Request) : Response
   }
 
-  class ClientCommandQueue {
-    -queueFilePath : Path
-    -queue : Queue<BufferedCommand>
-    +ClientCommandQueue(clientCacheDirectory: String)
-    +enqueue(command: ApiCommand, dragonData: String) : void
-    +dequeue() : BufferedCommand
-    +peek() : BufferedCommand
-    +isEmpty() : boolean
-    +size() : int
-  }
-
-  class BufferedCommand {
-    -command : ApiCommand
-    -dragonData : String
-    -retryCount : int
-    +BufferedCommand(command: ApiCommand, dragonData: String)
-    +getCommand() : ApiCommand
-    +getDragonData() : String
-    +getRetryCount() : int
-    +incrementRetryCount() : void
-  }
-}
-
-package ui {
-  enum Commands {
-    HELP
-    INFO
-    ADD
-    SHOW
-    UPDATE_BY_ID
-    REMOVE_BY_ID
-    CLEAR
-    SAVE
-    EXECUTE_SCRIPT
-    EXIT
-    REMOVE_GREATER
-    REMOVE_LOWER
-    HISTORY
-    COUNT_BY_TYPE
-    COUNT_GREATER_THAN_TYPE
-    FILTER_STARTS_WITH_NAME
-  }
-
-  class UI {
-    -collection : API
-    -storage : Storage
-    -out : OutputStreamWriter
-    -storageView : View
-    -outView : View
-    -history : Deque<Command>
-    +UI(collection: API, storage: Storage, out: OutputStreamWriter, storageView: View, outView: View)
-    +UI(collection: API, storage: Storage, out: OutputStreamWriter)
-    +execute(command: Command) : void
-  }
-
-  interface Executable {
-    +execute(command: Command, ui: UI) : void
-  }
-
-  class TextUIHandler <<Runnable>> {
-    -ui : UI
-    -readers : Deque<BufferedReader>
-    -openScripts : Deque<String>
-    -in : BufferedReader
-    -out : OutputStreamWriter
+  class CmdHandler <<Runnable>> {
     -requestClient : RequestClient
-    +TextUIHandler(ui: UI)
-    +setRequestClient(client: RequestClient) : void
+    -readers : Deque<BufferedReader>
+    +CmdHandler(requestClient: RequestClient)
     +run() : void
-  }
-
-  class Command <<record>> {
-    +command : Commands
-    +dragon : Dragon
-    +type : DragonType
-    +name : String
+    -sendInput(line: String) : void
+    -handleExecuteScript(line: String) : void
+    -closeCurrentScriptIfAny() : boolean
+    -stripQuotes(s: String) : String
   }
 }
+
 
 ' --- Relationships ---
 "dragon.Dragon" *-- "core.Coordinates"
 "dragon.Dragon" *-- "dragon.DragonHead"
 "dragon.Dragon" o-- "dragon.DragonType"
 
-"collection.RemoteCollection" ..|> "collection.API"
-"storage.RemoteStorage" ..|> "storage.Storage"
 "dragon.view.JsonView" ..|> "dragon.view.View"
 "dragon.view.StringView" ..|> "dragon.view.View"
 
-"client.Client" --> "collection.RemoteCollection"
-"client.Client" --> "storage.RemoteStorage"
-"client.Client" --> "ui.UI"
-"client.Client" --> "ui.TextUIHandler"
+"core.Response" --> "core.ParameterRequest"
+"core.Response" --> "dragon.Dragon"
+
+"client.Client" --> "client.CmdHandler"
 "client.Client" --> "client.RequestClient"
 
-"client.RequestClient" --> "client.ClientCommandQueue"
-"client.ClientCommandQueue" --> "client.BufferedCommand"
+"client.RequestClient" --> "core.Request"
+"client.RequestClient" --> "core.Response"
 
-"ui.UI" --> "collection.API"
-"ui.UI" --> "storage.Storage"
-"ui.UI" --> "dragon.view.View"
-"ui.UI" --> "ui.Command"
-"ui.UI" --> "ui.Executable"
-"ui.TextUIHandler" --> "ui.UI"
-"ui.TextUIHandler" --> "client.RequestClient"
-"ui.Command" --> "ui.Commands"
-"ui.Command" --> "dragon.Dragon"
-"ui.Command" --> "dragon.DragonType"
-
-"collection.RemoteCollection" --> "client.RequestClient"
-"storage.RemoteStorage" --> "client.RequestClient"
+"client.CmdHandler" --> "client.RequestClient"
+"client.CmdHandler" --> "core.Request"
+"client.CmdHandler" --> "core.Response"
+"client.CmdHandler" --> "core.ParameterRequest"
+"client.CmdHandler" --> "dragon.Dragon"
 
 @enduml
