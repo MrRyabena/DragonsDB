@@ -1,6 +1,5 @@
 package dragon;
 
-import core.BadDataException;
 import core.Coordinates;
 
 /**
@@ -41,7 +40,7 @@ public class Dragon implements Comparable<Dragon>, java.io.Serializable {
         this.name = name;
 
         if (coordinates == null) {
-            throw new NullPointerException("Coordinated cannot be null");
+            throw new NullPointerException("Coordinates cannot be null");
         }
         this.coordinates = coordinates;
 
@@ -51,7 +50,7 @@ public class Dragon implements Comparable<Dragon>, java.io.Serializable {
         this.age = age;
 
         if (weight <= 0) {
-            throw new IllegalArgumentException("Age must be greater than 0");
+            throw new IllegalArgumentException("Weight must be greater than 0");
         }
         this.weight = weight;
 
@@ -72,11 +71,11 @@ public class Dragon implements Comparable<Dragon>, java.io.Serializable {
      * @param coordinates the coordinates of the dragon (cannot be null)
      * @param age the age of the dragon (must be greater than 0)
      * @param weight the weight of the dragon (must be greater than 0)
-     * @throws BadDataException if data validation fails
+     * @throws IllegalArgumentException if data validation fails
      * @throws NullPointerException if required parameters are null
      */
     public Dragon(String name, Coordinates coordinates, int age, long weight)
-            throws BadDataException, NullPointerException {
+            throws IllegalArgumentException, NullPointerException {
         this(name, coordinates, age, weight, null, null);
     }
 
