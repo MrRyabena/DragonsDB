@@ -3,6 +3,8 @@ package client;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -15,7 +17,6 @@ import org.apache.log4j.Logger;
 import core.Request;
 import core.Response;
 import dragon.view.StringView;
-import dragon.view.View;
 
 public class CmdHandler implements Runnable {
 
@@ -61,24 +62,106 @@ public class CmdHandler implements Runnable {
             reader.close();
         } catch (IOException e) {
         }
+
+        if (readers.size() == 1) {
+            consoleWriter =
+                    new OutputStreamWriter(
+                            System.out); // Restore console output when returning to main input
+        }
+
+        try {
+            consoleWriter.write("Finished executing script.\n");
+            consoleWriter.flush();
+        } catch (IOException e) {
+            logger.error("Failed to write completion message: " + e.getMessage(), e);
+        }
+
         return true;
     }
 
     private void sendInput(String line) {
-        Request request = new Request();
-        request.status = Request.Status.GET;
-        request.request = line;
         try {
-            Response response = requestClient.sendRequest(request);  
-            if (response.data.isPresent()) 
-            {
-                try (InputStreamReader reader = new InputStreamReader(outView.toView(response.data.get()))) {
-                    reader.transferTo(out);
-                } catch (IOException e) {
-                    logger.error("Failed to display response: " + e.getMessage(), e);
-                }             
-        
+            // Start command execution
+            Request request = Request.command(line);
+            Response response = requestClient.sendRequest(request);
+
+            // Interactive dialog loop for parameters
+            long sessionId = 0; // Will be set by server
+            while (response.status == Response.Status.NEED_PARAMETER) {
+                if (response.parameterRequest != null) {
+                    Object paramReqObj = response.parameterRequest;
+                    sessionId = response.sessionId; // Track session
+
+                    // Extract prompt and required flag using reflection
+                    String prompt = "Enter value:";
+                    boolean required = true;
+                    try {
+                        prompt =
+                                (String) paramReqObj.getClass().getField("prompt").get(paramReqObj);
+                        required =
+                                (boolean)
+                                        paramReqObj
+                                                .getClass()
+                                                .getField("required")
+                                                .get(paramReqObj);
+                    } catch (Exception e) {
+                        logger.warn("Failed to get parameter details: " + e.getMessage());
+                    }
+
+                    // Display prompt and read user input
+                    consoleWriter.write(prompt + " ");
+                    consoleWriter.flush();
+
+                    String paramValue = readers.peek().readLine();
+
+                    if (paramValue == null || paramValue.trim().isEmpty()) {
+                        if (required) {
+                            System.err.println("This parameter is required.");
+                            continue;
+                        }
+                        paramValue = "";
+                    }
+
+                    // Send parameter response back to server
+                    Request paramResponse = Request.parameterResponse(sessionId, paramValue.trim());
+                    response = requestClient.sendRequest(paramResponse);
+                } else {
+                    System.err.println(
+                            "Server requested parameter but didn't provide specification.");
+                    break;
+                }
             }
+
+            // Handle final response
+            if (response.status == Response.Status.SUCCESS) {
+                // Display message
+                if (response.message != null && !response.message.isEmpty()) {
+                    consoleWriter.write(response.message + "\n");
+                    consoleWriter.flush();
+                }
+                // Display dragons if present
+                if (response.data != null && !response.data.isEmpty()) {
+                    StringView view = new StringView();
+                    try (Reader reader =
+                            new InputStreamReader(
+                                    new StringView().toView(response.data.stream()))) {
+                        Writer writer = new OutputStreamWriter(System.out);
+                        reader.transferTo(writer);
+                        writer.flush();
+                    } catch (IOException e) {
+                        logger.error("Failed to display response: " + e.getMessage(), e);
+                    }
+                }
+            } else if (response.status == Response.Status.ERROR) {
+                if (response.message != null && !response.message.isEmpty()) {
+                    System.err.println("Server error: " + response.message);
+                } else {
+                    System.err.println("Server error: Unknown error");
+                }
+            }
+        } catch (IOException e) {
+            logger.error("Failed to send input: " + e.getMessage(), e);
+            System.err.println("Error: " + e.getMessage());
         } catch (IllegalStateException e) {
             System.err.println("Error: " + e.getMessage());
         }
@@ -121,8 +204,10 @@ public class CmdHandler implements Runnable {
         }
 
         try {
-            System.out.println("Executing script: " + path);
+            consoleWriter.write("Executing script: " + path + "\n");
+            consoleWriter.flush();
             readers.push(Files.newBufferedReader(path));
+            consoleWriter = OutputStreamWriter.nullWriter(); // Suppress output from scripts
         } catch (Exception e) {
             System.err.println("Failed to execute script: " + e.getMessage());
         }
@@ -141,6 +226,5 @@ public class CmdHandler implements Runnable {
     private static final int MAX_SCRIPT_DEPTH = 5;
     private final RequestClient requestClient;
     private final Deque<BufferedReader> readers = new ArrayDeque<>();
-    private Writer out;
-    private View outView = new StringView();
+    private Writer consoleWriter = new OutputStreamWriter(System.out);
 }
