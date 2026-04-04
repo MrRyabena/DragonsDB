@@ -1,29 +1,26 @@
 package server;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import org.apache.log4j.Logger;
+
 import collection.API;
 import collection.ApiCommand;
-
+import core.ParameterRequest;
 import core.Request;
 import core.Response;
-
 import dragon.Dragon;
 import dragon.DragonHead;
 import dragon.DragonType;
 import dragon.view.JsonView;
 import dragon.view.View;
-
-import org.apache.log4j.Logger;
-
 import storage.CommandLogger;
 import storage.Storage;
 import storage.TransactionManager;
-
 import ui.Commands;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * Processes commands from clients using a stateful session-based dialog model.

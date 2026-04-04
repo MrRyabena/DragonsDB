@@ -4,7 +4,6 @@ import java.io.Serializable;
 import java.util.List;
 
 import dragon.Dragon;
-import server.ParameterRequest;
 
 /**
  * Server response to client requests.

@@ -6,6 +6,7 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
 
+import core.ParameterRequest;
 import ui.Commands;
 
 /**
