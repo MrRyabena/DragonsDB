@@ -1,27 +1,18 @@
 package server;
 
 import java.net.SocketAddress;
-import java.util.*;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.Map;
+import java.util.Queue;
+
 import ui.Commands;
 
 /**
- * Represents an active session with a connected client.
- * Maintains dialog state, collected parameters, and pending parameter requests.
+ * Represents an active session with a connected client. Maintains dialog state, collected
+ * parameters, and pending parameter requests.
  */
 public class ClientSession {
-    private static long nextSessionId = 1;
-    private final long sessionId;
-    private final SocketAddress clientAddress;
-    private final long createdAt;
-    private long lastActivity;
-    
-    // Dialog state
-    private Commands currentCommand;
-    private Queue<ParameterRequest> pendingParameters;
-    private Map<String, Object> collectedParameters;
-    
-    // Timeout in milliseconds (default 5 minutes)
-    private static final long SESSION_TIMEOUT = 5 * 60 * 1000;
 
     public ClientSession(SocketAddress clientAddress) {
         synchronized (ClientSession.class) {
@@ -100,7 +91,22 @@ public class ClientSession {
 
     @Override
     public String toString() {
-        return String.format("Session[%d, %s, cmd=%s, params=%d]", 
-            sessionId, clientAddress, currentCommand, pendingParameters.size());
+        return String.format(
+                "Session[%d, %s, cmd=%s, params=%d]",
+                sessionId, clientAddress, currentCommand, pendingParameters.size());
     }
+
+    private static long nextSessionId = 1;
+    private final long sessionId;
+    private final SocketAddress clientAddress;
+    private final long createdAt;
+    private long lastActivity;
+
+    // Dialog state
+    private Commands currentCommand;
+    private Queue<ParameterRequest> pendingParameters;
+    private Map<String, Object> collectedParameters;
+
+    // Timeout in milliseconds (default 5 minutes)
+    private static final long SESSION_TIMEOUT = 5 * 60 * 1000;
 }
