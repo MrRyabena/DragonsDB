@@ -1,15 +1,21 @@
 package client;
 
-import org.apache.log4j.Logger;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayDeque;
 import java.util.Deque;
+
+import org.apache.log4j.Logger;
+
+import core.Request;
+import core.Response;
+import dragon.view.StringView;
+import dragon.view.View;
 
 public class CmdHandler implements Runnable {
 
@@ -59,10 +65,22 @@ public class CmdHandler implements Runnable {
     }
 
     private void sendInput(String line) {
+        Request request = new Request();
+        request.status = Request.Status.GET;
+        request.request = line;
         try {
-            byte[] response = requestClient.send(line);
-            System.out.println(new String(response, core.Defaults.CHARSET));
-        } catch (Exception e) {
+            Response response = requestClient.sendRequest(request);  
+            if (response.data.isPresent()) 
+            {
+                try (InputStreamReader reader = new InputStreamReader(outView.toView(response.data.get()))) {
+                    reader.transferTo(out);
+                } catch (IOException e) {
+                    logger.error("Failed to display response: " + e.getMessage(), e);
+                }             
+        
+            }
+        } catch (IllegalStateException e) {
+            System.err.println("Error: " + e.getMessage());
         }
     }
 
@@ -123,4 +141,6 @@ public class CmdHandler implements Runnable {
     private static final int MAX_SCRIPT_DEPTH = 5;
     private final RequestClient requestClient;
     private final Deque<BufferedReader> readers = new ArrayDeque<>();
+    private Writer out;
+    private View outView = new StringView();
 }
