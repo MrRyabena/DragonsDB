@@ -3,6 +3,7 @@ package server;
 import java.io.IOException;
 import java.nio.channels.DatagramChannel;
 import java.util.function.Consumer;
+
 import org.apache.log4j.Logger;
 
 public class ResponseSender implements Consumer<ServerContext> {
@@ -21,7 +22,7 @@ public class ResponseSender implements Consumer<ServerContext> {
             if (channel == null || context.clientAddress == null || context.response == null) {
                 return;
             }
-            channel.send(context.response, context.clientAddress);
+            channel.send(context.responseData, context.clientAddress);
         } catch (IOException e) {
             logger.error("Failed to send response", e);
         }

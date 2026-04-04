@@ -2,21 +2,19 @@ package server;
 
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
-import java.util.stream.Stream;
 
-import collection.ApiCommand;
-import dragon.Dragon;
+import core.Request;
+import core.Response;
 
 public class ServerContext {
     public SocketAddress clientAddress;
     public ByteBuffer requestData;
-    public String commandLine;
-    public Stream<Dragon> stream;
-    public String scriptContent;
-    public ByteBuffer response;
+    public Request request;
+    public Response response;
+    public ByteBuffer responseData;
 
     public ServerContext() {
         requestData = ByteBuffer.allocate(64 * 1024);
-        response = ByteBuffer.allocate(0);
+        responseData = ByteBuffer.allocate(64 * 1024);
     }
 }
