@@ -31,25 +31,29 @@ public class Server {
         CommandLogger commandLogger = new FileCommandLogger(storagePath);
         TransactionManager transactionManager = new TransactionManager(commandLogger);
         RecoveryManager recoveryManager = new RecoveryManager(commandLogger, collection);
-        
+
         // Perform recovery from any incomplete transactions
         logger.info("Performing recovery from WAL...");
         int recovered = recoveryManager.performRecovery();
         if (recovered > 0) {
-            logger.info("Recovered and rolled back " + recovered + " commands from incomplete transactions");
+            logger.info(
+                    "Recovered and rolled back "
+                            + recovered
+                            + " commands from incomplete transactions");
         }
 
-        try (var connection_handler = new ConnectionHandler()) {
+        try (var connectionHandler = new ConnectionHandler()) {
             var reader = new RequestReader();
-            var commands_handler = new CommandsHandler(collection, storage, commandLogger, transactionManager);
+            var commandsHandler =
+                    new CommandsHandler(collection, storage, commandLogger, transactionManager);
             var packer = new ResponsePacker();
-            var sender = new ResponseSender(connection_handler.getChannel());
+            var sender = new ResponseSender(connectionHandler.getChannel());
             while (true) {
-                Optional<ServerContext> new_context = connection_handler.get();
-                if (new_context.isPresent()) {
-                    ServerContext context = new_context.get();
+                Optional<ServerContext> newContext = connectionHandler.get();
+                if (newContext.isPresent()) {
+                    ServerContext context = newContext.get();
                     reader.accept(context);
-                    commands_handler.handleRequest(context);
+                    commandsHandler.handleRequest(context);
                     packer.accept(context);
                     sender.accept(context);
                 }
@@ -62,5 +66,6 @@ public class Server {
     static {
         logger = Logger.getLogger(Server.class);
     }
-    static private Logger logger;
+
+    private static Logger logger;
 }
