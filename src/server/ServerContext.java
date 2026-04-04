@@ -12,9 +12,11 @@ public class ServerContext {
     public Request request;
     public Response response;
     public ByteBuffer responseData;
+    public long sessionId;
 
     public ServerContext() {
         requestData = ByteBuffer.allocate(64 * 1024);
         responseData = ByteBuffer.allocate(64 * 1024);
+        sessionId = 0;
     }
 }
