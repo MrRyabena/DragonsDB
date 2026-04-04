@@ -42,13 +42,15 @@ public class Server {
         try (var connection_handler = new ConnectionHandler()) {
             var reader = new RequestReader();
             var commands_handler = new CommandsHandler(collection, storage, commandLogger, transactionManager);
+            var packer = new ResponsePacker();
             var sender = new ResponseSender(connection_handler.getChannel());
             while (true) {
                 Optional<ServerContext> new_context = connection_handler.get();
                 if (new_context.isPresent()) {
                     ServerContext context = new_context.get();
                     reader.accept(context);
-                    commands_handler.accept(context);
+                    commands_handler.handleRequest(context);
+                    packer.accept(context);
                     sender.accept(context);
                 }
             }
