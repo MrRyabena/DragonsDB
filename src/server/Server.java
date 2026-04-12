@@ -1,6 +1,9 @@
 package server;
 
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
@@ -38,6 +41,11 @@ public class Server {
                             + " commands from incomplete transactions");
         }
 
+        // Create thread pool: use number of CPU cores as thread count
+        int threadPoolSize = Runtime.getRuntime().availableProcessors();
+        ExecutorService executorService = Executors.newFixedThreadPool(threadPoolSize);
+        logger.info("Thread pool created with " + threadPoolSize + " threads");
+
         try (var connectionHandler = new ConnectionHandler()) {
             var reader = new RequestReader();
             var sessionManager = new SessionManager();
@@ -52,6 +60,7 @@ public class Server {
                             sessionManager);
             var packer = new ResponsePacker();
             var sender = new ResponseSender(connectionHandler.getChannel());
+
             while (true) {
                 Optional<ServerContext> newContext = connectionHandler.get();
                 if (newContext.isEmpty()) {
@@ -59,16 +68,34 @@ public class Server {
                 }
 
                 ServerContext context = newContext.get();
-                reader.accept(context);
-                authHandler.accept(context);
-                if (!context.skipCommandHandling) {
-                    commandsHandler.handleRequest(context);
-                }
-                packer.accept(context);
-                sender.accept(context);
+
+                // Submit client request handling to thread pool
+                ClientRequestHandler handler = new ClientRequestHandler(
+                        context,
+                        reader,
+                        authHandler,
+                        commandsHandler,
+                        packer,
+                        sender);
+                executorService.submit(handler);
             }
         } catch (Exception e) {
             logger.error("Fatal server error", e);
+        } finally {
+            // Graceful shutdown of thread pool
+            logger.info("Shutting down thread pool...");
+            executorService.shutdown();
+            try {
+                if (!executorService.awaitTermination(30, TimeUnit.SECONDS)) {
+                    logger.warn("Thread pool did not terminate in time, forcing shutdown");
+                    executorService.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                logger.error("Interrupted while waiting for thread pool shutdown", e);
+                executorService.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
+            logger.info("Server stopped");
         }
     }
 }
