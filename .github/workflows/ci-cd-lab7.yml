@@ -65,7 +65,7 @@ jobs:
             assembly/common/target/DragonsDB-common.jar \
             assembly/client/target/DragonsDB-client.jar \
             assembly/server/target/DragonsDB-server.jar \
-            db.cfg \
+            src/db.cfg \
             "$SSH_USER@$SSH_HOST:~/$REMOTE_DIR/"
 
       - name: Show remote lab_7 contents
