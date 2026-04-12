@@ -15,24 +15,30 @@ public class Request implements Serializable {
     public String command; // For COMMAND: the command text
     public String parameterValue; // For PARAMETER_RESPONSE: the parameter value entered by user
     public long sessionId; // Session ID (for server to track dialog state)
+    public String login; // For authentication
+    public String password; // For authentication
 
     public Request() {
         this.status = Status.COMMAND;
         this.sessionId = 0;
     }
 
-    public static Request command(String commandText) {
+    public static Request command(String commandText, String login, String password) {
         Request req = new Request();
         req.status = Status.COMMAND;
         req.command = commandText;
+        req.login = login;
+        req.password = password;
         return req;
     }
 
-    public static Request parameterResponse(long sessionId, String parameterValue) {
+    public static Request parameterResponse(long sessionId, String parameterValue, String login, String password) {
         Request req = new Request();
         req.status = Status.PARAMETER_RESPONSE;
         req.sessionId = sessionId;
         req.parameterValue = parameterValue;
+        req.login = login;
+        req.password = password;
         return req;
     }
 }
