@@ -35,12 +35,13 @@ public class CommandsHandler {
             API collection,
             Storage storage,
             CommandLogger commandLogger,
-            TransactionManager transactionManager) {
+            TransactionManager transactionManager,
+            SessionManager sessionManager) {
         this.collection = collection;
         this.storage = storage;
         this.commandLogger = commandLogger;
         this.transactionManager = transactionManager;
-        this.sessionManager = new SessionManager();
+        this.sessionManager = sessionManager;
         this.storageView = new JsonView();
     }
 
@@ -72,6 +73,11 @@ public class CommandsHandler {
 
     /** Handles a new command from the client. */
     private void handleNewCommand(ClientSession session, ServerContext context) {
+        if (context.request.command == null) {
+            context.response = Response.error("Empty command");
+            return;
+        }
+
         String commandLine = context.request.command.trim();
         if (commandLine.isEmpty()) {
             context.response = Response.error("Empty command");

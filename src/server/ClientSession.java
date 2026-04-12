@@ -15,6 +15,12 @@ import ui.Commands;
  */
 public class ClientSession {
 
+    public enum AuthAction {
+        NONE,
+        LOGIN,
+        REGISTER
+    }
+
     public ClientSession(SocketAddress clientAddress) {
         synchronized (ClientSession.class) {
             this.sessionId = nextSessionId++;
@@ -90,6 +96,32 @@ public class ClientSession {
         collectedParameters.clear();
     }
 
+    public void startAuthDialog(AuthAction action) {
+        authAction = action;
+        clearDialog();
+    }
+
+    public boolean isAuthDialogActive() {
+        return authAction != AuthAction.NONE;
+    }
+
+    public AuthAction getAuthAction() {
+        return authAction;
+    }
+
+    public void clearAuthDialog() {
+        authAction = AuthAction.NONE;
+        clearDialog();
+    }
+
+    public String getAuthenticatedLogin() {
+        return authenticatedLogin;
+    }
+
+    public void setAuthenticatedLogin(String authenticatedLogin) {
+        this.authenticatedLogin = authenticatedLogin;
+    }
+
     @Override
     public String toString() {
         return String.format(
@@ -107,6 +139,8 @@ public class ClientSession {
     private Commands currentCommand;
     private Queue<ParameterRequest> pendingParameters;
     private Map<String, Object> collectedParameters;
+    private AuthAction authAction = AuthAction.NONE;
+    private String authenticatedLogin;
 
     // Timeout in milliseconds (default 5 minutes)
     private static final long SESSION_TIMEOUT = 5 * 60 * 1000;
