@@ -3,11 +3,10 @@ package server;
 import java.net.SocketAddress;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Timer;
-import java.util.WeakHashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.log4j.Logger;
 
@@ -70,7 +69,7 @@ public class SessionManager {
 
     /** Gets all active sessions (for monitoring/debugging). */
     public Collection<ClientSession> getAllSessions() {
-        return Collections.unmodifiableCollection(sessions.values());
+        return List.copyOf(sessions.values());
     }
 
     /** Shuts down the session manager and cleanup timer. */
@@ -81,7 +80,6 @@ public class SessionManager {
     }
 
     private static final Logger logger = Logger.getLogger(SessionManager.class);
-    private final Map<SocketAddress, ClientSession> sessions =
-            Collections.synchronizedMap(new WeakHashMap<>());
+    private final Map<SocketAddress, ClientSession> sessions = new ConcurrentHashMap<>();
     private final Timer cleanupTimer;
 }

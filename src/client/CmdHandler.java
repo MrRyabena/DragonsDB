@@ -126,9 +126,21 @@ public class CmdHandler implements Runnable {
                         logger.warn("Failed to get parameter details: " + e.getMessage());
                     }
 
+                    String normalizedPrompt = prompt.toLowerCase();
+                    boolean passwordPrompt =
+                            response.status == Response.Status.NEED_PASSWORD
+                                    || normalizedPrompt.contains("password")
+                                    || normalizedPrompt.contains("парол");
+
                     String paramValue;
-                    if (response.status == Response.Status.NEED_PASSWORD) {
+                    if (passwordPrompt) {
                         paramValue = readPasswordInput(prompt, required);
+                    } else if (authCommand
+                            && readers.size() <= 1
+                            && System.console() != null
+                            && (normalizedPrompt.contains("login")
+                                    || normalizedPrompt.contains("user"))) {
+                        paramValue = System.console().readLine("%s ", prompt);
                     } else {
                         // Display prompt and read user input
                         consoleWriter.write(prompt + " ");
@@ -145,7 +157,6 @@ public class CmdHandler implements Runnable {
                     }
 
                     if (authCommand) {
-                        String normalizedPrompt = prompt.toLowerCase();
                         if (normalizedPrompt.contains("login") || normalizedPrompt.contains("user")) {
                             stagedLogin = paramValue.trim();
                             requestLogin = stagedLogin;
@@ -156,9 +167,13 @@ public class CmdHandler implements Runnable {
                     }
 
                     // Send parameter response back to server
+                        String valueToSend =
+                            response.status == Response.Status.NEED_PASSWORD
+                                ? paramValue
+                                : paramValue.trim();
                     Request paramResponse =
                             Request.parameterResponse(
-                                    sessionId, paramValue.trim(), requestLogin, requestPassword);
+                                sessionId, valueToSend, requestLogin, requestPassword);
                     response = requestClient.sendRequest(paramResponse);
                 } else {
                     System.err.println(
