@@ -1,42 +1,48 @@
 package storage;
 
-import java.io.FileInputStream;
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Properties;
 
 import org.apache.log4j.Logger;
 
+import core.Defaults;
+
 /** Shared PostgreSQL connection and schema helpers. */
 public final class PostgresSupport {
-    public static final String DEFAULT_URL = "jdbc:postgresql://localhost:5432/studs";
+    public static final String DEFAULT_URL =
+            "jdbc:postgresql://" + Defaults.DB_HOST + ":" + Defaults.DB_PORT + "/" + Defaults.DB_NAME;
     public static final String DEFAULT_DRAGON_TABLE = "dragons";
     private static final Logger logger = Logger.getLogger(PostgresSupport.class);
-    private static final String DEFAULT_DB_CONFIG_PATH = "db.cfg";
 
     private PostgresSupport() {}
 
     public static Connection openConnection() throws SQLException {
-        Properties fileConfig = loadDbConfig();
-
-        String url = firstNonBlank(
-                System.getenv("DATABASE_URL"),
-                System.getenv("PGJDBC_URL"),
-                trimToNull(fileConfig.getProperty("url")),
-                DEFAULT_URL);
+        String url = firstNonBlank(System.getenv("DATABASE_URL"), System.getenv("PGJDBC_URL"), DEFAULT_URL);
         String user = firstNonBlank(
                 System.getenv("PGUSER"),
                 System.getenv("DB_USER"),
-                System.getenv("POSTGRES_USER"),
-                trimToNull(fileConfig.getProperty("user")));
+                System.getenv("POSTGRES_USER"));
         String password = firstNonBlank(
                 System.getenv("PGPASSWORD"),
                 System.getenv("DB_PASSWORD"),
-                System.getenv("POSTGRES_PASSWORD"),
-                trimToNull(fileConfig.getProperty("password")));
+                System.getenv("POSTGRES_PASSWORD"));
+
+        PgPassEntry pgPassEntry = null;
+        if (isBlank(user) || isBlank(password)) {
+            pgPassEntry = loadCredentialsFromPgPass(url, user);
+        }
+        if (isBlank(user) && pgPassEntry != null && !isBlank(pgPassEntry.user)) {
+            user = pgPassEntry.user;
+        }
+        if (isBlank(password) && pgPassEntry != null) {
+            password = pgPassEntry.password;
+        }
 
         if (isBlank(user) || isBlank(password)) {
             logger.info("Connecting to PostgreSQL without explicit credentials, url=" + url);
@@ -78,27 +84,102 @@ public final class PostgresSupport {
         return null;
     }
 
-    private static Properties loadDbConfig() {
-        Properties properties = new Properties();
-        String configPath = firstNonBlank(System.getenv("DB_CONFIG_PATH"), DEFAULT_DB_CONFIG_PATH);
-        try (FileInputStream inputStream = new FileInputStream(configPath)) {
-            properties.load(inputStream);
-            logger.info("Loaded database config from " + configPath);
-        } catch (IOException e) {
-            logger.warn("Database config file not found or unreadable: " + configPath + ". Using env/default values.");
-        }
-        return properties;
-    }
-
-    private static String trimToNull(String value) {
-        if (value == null) {
-            return null;
-        }
-        String trimmed = value.trim();
-        return trimmed.isEmpty() ? null : trimmed;
-    }
-
     private static boolean isBlank(String value) {
         return value == null || value.isBlank();
     }
+
+    private static PgPassEntry loadCredentialsFromPgPass(String jdbcUrl, String requestedUser) {
+        String pgPassPath =
+                firstNonBlank(
+                        System.getenv("PGPASSFILE"),
+                        Path.of(System.getProperty("user.home"), ".pgpass").toString());
+
+        String host = extractHost(jdbcUrl);
+        String port = extractPort(jdbcUrl);
+        String database = extractDatabase(jdbcUrl);
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(pgPassPath))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String trimmed = line.trim();
+                if (trimmed.isEmpty() || trimmed.startsWith("#")) {
+                    continue;
+                }
+
+                String[] parts = trimmed.split(":", 5);
+                if (parts.length != 5) {
+                    continue;
+                }
+
+                String entryUser = parts[3];
+                if (!fieldMatches(parts[0], host)
+                        || !fieldMatches(parts[1], port)
+                        || !fieldMatches(parts[2], database)
+                        || !fieldMatches(entryUser, requestedUser)) {
+                    continue;
+                }
+                if (isBlank(requestedUser) && "*".equals(entryUser)) {
+                    continue;
+                }
+
+                String resolvedUser = isBlank(requestedUser) ? entryUser : requestedUser;
+                logger.info("Loaded PostgreSQL credentials from .pgpass for user " + resolvedUser);
+                return new PgPassEntry(resolvedUser, parts[4]);
+            }
+        } catch (IOException e) {
+            logger.debug("Unable to read .pgpass file: " + pgPassPath);
+        }
+
+        return null;
+    }
+
+    private static boolean fieldMatches(String pattern, String value) {
+        if ("*".equals(pattern)) {
+            return true;
+        }
+        if (value == null) {
+            return false;
+        }
+        return pattern.equals(value);
+    }
+
+    private static String extractHost(String jdbcUrl) {
+        String value = stripJdbcPrefix(jdbcUrl);
+        int slashIndex = value.indexOf('/');
+        String hostPort = slashIndex >= 0 ? value.substring(0, slashIndex) : value;
+        int colonIndex = hostPort.indexOf(':');
+        return colonIndex >= 0 ? hostPort.substring(0, colonIndex) : hostPort;
+    }
+
+    private static String extractPort(String jdbcUrl) {
+        String value = stripJdbcPrefix(jdbcUrl);
+        int slashIndex = value.indexOf('/');
+        String hostPort = slashIndex >= 0 ? value.substring(0, slashIndex) : value;
+        int colonIndex = hostPort.indexOf(':');
+        return colonIndex >= 0 ? hostPort.substring(colonIndex + 1) : "5432";
+    }
+
+    private static String extractDatabase(String jdbcUrl) {
+        String value = stripJdbcPrefix(jdbcUrl);
+        int slashIndex = value.indexOf('/');
+        if (slashIndex < 0 || slashIndex + 1 >= value.length()) {
+            return "*";
+        }
+        String dbPart = value.substring(slashIndex + 1);
+        int queryIndex = dbPart.indexOf('?');
+        return queryIndex >= 0 ? dbPart.substring(0, queryIndex) : dbPart;
+    }
+
+    private static String stripJdbcPrefix(String jdbcUrl) {
+        if (jdbcUrl == null) {
+            return Defaults.DB_HOST + ":" + Defaults.DB_PORT + "/" + Defaults.DB_NAME;
+        }
+        String prefix = "jdbc:postgresql://";
+        if (!jdbcUrl.startsWith(prefix)) {
+            return Defaults.DB_HOST + ":" + Defaults.DB_PORT + "/" + Defaults.DB_NAME;
+        }
+        return jdbcUrl.substring(prefix.length());
+    }
+
+    private record PgPassEntry(String user, String password) {}
 }
