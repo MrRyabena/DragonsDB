@@ -7,7 +7,7 @@ import java.sql.Statement;
 
 /** Shared PostgreSQL connection and schema helpers. */
 public final class PostgresSupport {
-    public static final String DEFAULT_URL = "jdbc:postgresql://pg:5432/studs";
+    public static final String DEFAULT_URL = "jdbc:postgresql://pg:s502499/studs";
     public static final String DEFAULT_DRAGON_TABLE = "dragons";
 
     private PostgresSupport() {}
