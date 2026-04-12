@@ -26,5 +26,5 @@ public final class Defaults {
     public static final String DB_NAME = "studs";
 
     /** Timeout for UDP request/response from client side when server is unavailable. */
-    public static final int RESPONSE_TIMEOUT = 500;
+    public static final int RESPONSE_TIMEOUT = 2000;
 }

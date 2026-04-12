@@ -206,19 +206,34 @@ public class CmdHandler implements Runnable {
     }
 
     private void sendInitRequest() {
-        try {
-            Request initRequest = new Request();
-            initRequest.status = Request.Status.INIT;
-            initRequest.login = login;
-            initRequest.password = password;
+        Request initRequest = new Request();
+        initRequest.status = Request.Status.INIT;
+        initRequest.login = login;
+        initRequest.password = password;
 
-            Response response = requestClient.sendRequest(initRequest);
-            if (response != null && response.message != null && !response.message.isEmpty()) {
-                consoleWriter.write(response.message + "\n");
-                consoleWriter.flush();
+        final int maxAttempts = 5;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                Response response = requestClient.sendRequest(initRequest);
+                if (response != null && response.message != null && !response.message.isEmpty()) {
+                    consoleWriter.write(response.message + "\n");
+                    consoleWriter.flush();
+                }
+                return;
+            } catch (Exception e) {
+                if (attempt == maxAttempts) {
+                    logger.warn("Failed to perform init handshake: " + e.getMessage());
+                    return;
+                }
+                logger.info("Init handshake attempt " + attempt + " failed, retrying...");
+                try {
+                    Thread.sleep(300);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    logger.warn("Init handshake interrupted");
+                    return;
+                }
             }
-        } catch (Exception e) {
-            logger.warn("Failed to perform init handshake: " + e.getMessage());
         }
     }
 
