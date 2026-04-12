@@ -13,7 +13,8 @@ public class Response implements Serializable {
     public enum Status {
         SUCCESS,           // Command executed successfully
         ERROR,             // Command failed
-        NEED_PARAMETER     // Server is requesting a parameter from client
+        NEED_PARAMETER,    // Server is requesting a parameter from client
+        NEED_PASSWORD      // Server is requesting a password (should be hidden in console)
     }
 
     public Status status;
@@ -48,6 +49,14 @@ public class Response implements Serializable {
     public static Response needParameter(long sessionId, ParameterRequest param) {
         Response resp = new Response();
         resp.status = Status.NEED_PARAMETER;
+        resp.sessionId = sessionId;
+        resp.parameterRequest = param;
+        return resp;
+    }
+
+    public static Response needPassword(long sessionId, ParameterRequest param) {
+        Response resp = new Response();
+        resp.status = Status.NEED_PASSWORD;
         resp.sessionId = sessionId;
         resp.parameterRequest = param;
         return resp;

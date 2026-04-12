@@ -141,7 +141,7 @@ public class AuthenticationHandler implements Consumer<ServerContext> {
                         "Enter password:",
                         ParameterRequest.ParameterType.STRING,
                         true));
-        context.response = Response.needParameter(session.getSessionId(), session.peekNextParameter());
+        context.response = buildAuthDialogResponse(session);
     }
 
     private void handleAuthParameterResponse(ClientSession session, ServerContext context) {
@@ -164,7 +164,7 @@ public class AuthenticationHandler implements Consumer<ServerContext> {
         session.pollNextParameter();
 
         if (session.hasMoreParameters()) {
-            context.response = Response.needParameter(session.getSessionId(), session.peekNextParameter());
+            context.response = buildAuthDialogResponse(session);
             return;
         }
 
@@ -224,6 +224,14 @@ public class AuthenticationHandler implements Consumer<ServerContext> {
             return false;
         }
         return authService.authenticate(request.login, request.password);
+    }
+
+    private Response buildAuthDialogResponse(ClientSession session) {
+        ParameterRequest next = session.peekNextParameter();
+        if (next != null && "auth_password".equals(next.parameterName)) {
+            return Response.needPassword(session.getSessionId(), next);
+        }
+        return Response.needParameter(session.getSessionId(), next);
     }
 
     private String normalizeLogin(String login) {

@@ -1,6 +1,7 @@
 package client;
 
 import java.io.BufferedReader;
+import java.io.Console;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
@@ -103,7 +104,8 @@ public class CmdHandler implements Runnable {
 
             // Interactive dialog loop for parameters
             long sessionId = 0; // Will be set by server
-            while (response.status == Response.Status.NEED_PARAMETER) {
+            while (response.status == Response.Status.NEED_PARAMETER
+                    || response.status == Response.Status.NEED_PASSWORD) {
                 if (response.parameterRequest != null) {
                     Object paramReqObj = response.parameterRequest;
                     sessionId = response.sessionId; // Track session
@@ -124,11 +126,15 @@ public class CmdHandler implements Runnable {
                         logger.warn("Failed to get parameter details: " + e.getMessage());
                     }
 
-                    // Display prompt and read user input
-                    consoleWriter.write(prompt + " ");
-                    consoleWriter.flush();
-
-                    String paramValue = readers.peek().readLine();
+                    String paramValue;
+                    if (response.status == Response.Status.NEED_PASSWORD) {
+                        paramValue = readPasswordInput(prompt, required);
+                    } else {
+                        // Display prompt and read user input
+                        consoleWriter.write(prompt + " ");
+                        consoleWriter.flush();
+                        paramValue = readers.peek().readLine();
+                    }
 
                     if (paramValue == null || paramValue.trim().isEmpty()) {
                         if (required) {
@@ -319,11 +325,45 @@ public class CmdHandler implements Runnable {
         return s;
     }
 
+    private String readPasswordInput(String prompt, boolean required) throws IOException {
+        if (readers.size() <= 1) {
+            Console console = System.console();
+            if (console != null) {
+                char[] passwordChars = console.readPassword("%s ", prompt);
+                if (passwordChars == null) {
+                    return null;
+                }
+                String value = new String(passwordChars);
+                if (required && value.trim().isEmpty()) {
+                    return "";
+                }
+                return value;
+            }
+        }
+
+        // Script mode (or no Console available): read from current reader without extra handling.
+        if (readers.size() > 1) {
+            return readers.peek().readLine();
+        }
+
+        // Fallback for IDEs/terminals where System.console() is unavailable.
+        if (!warnedAboutVisiblePasswordInput) {
+            System.err.println(
+                    "Warning: hidden password input is unavailable in this environment. "
+                            + "Password will be visible while typing.");
+            warnedAboutVisiblePasswordInput = true;
+        }
+        consoleWriter.write(prompt + " ");
+        consoleWriter.flush();
+        return readers.peek().readLine();
+    }
+
     private static final Logger logger = Logger.getLogger(CmdHandler.class);
     private static final int MAX_SCRIPT_DEPTH = 5;
     private final RequestClient requestClient;
     private final Deque<BufferedReader> readers = new ArrayDeque<>();
     private Writer consoleWriter = new OutputStreamWriter(System.out);
+    private boolean warnedAboutVisiblePasswordInput;
     private String login;
     private String password;
 }
