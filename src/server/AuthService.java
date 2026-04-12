@@ -6,6 +6,8 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.apache.log4j.Logger;
+
 /**
  * Minimal in-memory authentication service.
  *
@@ -19,20 +21,32 @@ public class AuthService {
 
         String normalizedLogin = normalizeLogin(login);
         String passwordHash = hashPassword(rawPassword);
-        return users.putIfAbsent(normalizedLogin, passwordHash) == null;
+        boolean created = users.putIfAbsent(normalizedLogin, passwordHash) == null;
+        if (created) {
+            logger.info("Created user: " + normalizedLogin);
+        } else {
+            logger.info("Registration attempt for existing user: " + normalizedLogin);
+        }
+        return created;
     }
 
     public boolean authenticate(String login, String rawPassword) {
         if (isBlank(login) || isBlank(rawPassword)) {
+            logger.debug("Authentication rejected: blank credentials");
             return false;
         }
 
         String normalizedLogin = normalizeLogin(login);
         String expectedHash = users.get(normalizedLogin);
         if (expectedHash == null) {
+            logger.debug("Authentication failed: unknown user " + normalizedLogin);
             return false;
         }
-        return expectedHash.equals(hashPassword(rawPassword));
+        boolean ok = expectedHash.equals(hashPassword(rawPassword));
+        if (!ok) {
+            logger.debug("Authentication failed: invalid password for " + normalizedLogin);
+        }
+        return ok;
     }
 
     public void validateCredentials(String login, String rawPassword) {
@@ -67,5 +81,6 @@ public class AuthService {
         }
     }
 
+    private static final Logger logger = Logger.getLogger(AuthService.class);
     private final Map<String, String> users = new ConcurrentHashMap<>();
 }

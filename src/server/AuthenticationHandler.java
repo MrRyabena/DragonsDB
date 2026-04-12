@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.function.Consumer;
 
+import org.apache.log4j.Logger;
+
 import core.ParameterRequest;
 import core.Request;
 import core.Response;
@@ -24,6 +26,7 @@ public class AuthenticationHandler implements Consumer<ServerContext> {
     @Override
     public void accept(ServerContext context) {
         if (context.request == null) {
+            logger.warn("Rejected request: null payload");
             context.response = Response.error("Invalid request: null");
             context.skipCommandHandling = true;
             return;
@@ -41,6 +44,7 @@ public class AuthenticationHandler implements Consumer<ServerContext> {
             case COMMAND -> handleCommand(session, context);
             case PARAMETER_RESPONSE -> handleParameterResponse(session, context);
             default -> {
+                logger.warn("Rejected request with unknown status: " + context.request.status);
                 context.response = Response.error("Unknown request status: " + context.request.status);
                 context.skipCommandHandling = true;
             }
@@ -50,11 +54,13 @@ public class AuthenticationHandler implements Consumer<ServerContext> {
     private void handleInit(ClientSession session, ServerContext context) {
         if (isRequestAuthenticated(context.request)) {
             session.setAuthenticatedLogin(context.request.login);
+            logger.info("INIT accepted for user: " + context.request.login);
             context.response =
                     Response.success(List.of(), "Authorized as: " + session.getAuthenticatedLogin());
             return;
         }
 
+        logger.info("INIT for unauthorized client: " + context.clientAddress);
         context.response =
                 Response.success(
                         List.of(),
@@ -63,6 +69,7 @@ public class AuthenticationHandler implements Consumer<ServerContext> {
 
     private void handleCommand(ClientSession session, ServerContext context) {
         if (context.request.command == null || context.request.command.isBlank()) {
+            logger.warn("Rejected empty command from: " + context.clientAddress);
             context.response = Response.error("Empty command");
             context.skipCommandHandling = true;
             return;
@@ -80,6 +87,7 @@ public class AuthenticationHandler implements Consumer<ServerContext> {
         }
 
         if (!isRequestAuthenticated(context.request)) {
+            logger.info("Rejected unauthorized command: " + cmdStr + " from " + context.clientAddress);
             context.response = Response.error("User is not authorized. Use register/login first.");
             context.skipCommandHandling = true;
             return;
@@ -97,6 +105,7 @@ public class AuthenticationHandler implements Consumer<ServerContext> {
         }
 
         if (!isRequestAuthenticated(context.request)) {
+            logger.info("Rejected unauthorized parameter response from " + context.clientAddress);
             context.response = Response.error("User is not authorized. Use register/login first.");
             session.clearDialog();
             context.skipCommandHandling = true;
@@ -109,6 +118,7 @@ public class AuthenticationHandler implements Consumer<ServerContext> {
 
     private void handleAuthCommand(
             ClientSession session, ServerContext context, String command, String args) {
+        logger.info("Auth command received: " + command + " from " + context.clientAddress);
         String[] parts = args.isBlank() ? new String[0] : args.split("\\s+", 2);
         if (parts.length == 2) {
             executeAuthCommand(session, context, command, parts[0], parts[1]);
@@ -137,6 +147,7 @@ public class AuthenticationHandler implements Consumer<ServerContext> {
     private void handleAuthParameterResponse(ClientSession session, ServerContext context) {
         ParameterRequest currentParam = session.peekNextParameter();
         if (currentParam == null) {
+            logger.warn("Unexpected auth parameter response for session " + session.getSessionId());
             session.clearAuthDialog();
             context.response = Response.error("Unexpected authentication response");
             return;
@@ -144,6 +155,7 @@ public class AuthenticationHandler implements Consumer<ServerContext> {
 
         String value = context.request.parameterValue;
         if (value == null || value.isBlank()) {
+            logger.warn("Empty auth parameter for session " + session.getSessionId());
             context.response = Response.error("Invalid input: Parameter cannot be empty");
             return;
         }
@@ -186,20 +198,24 @@ public class AuthenticationHandler implements Consumer<ServerContext> {
         if ("register".equals(normalizedCommand)) {
             boolean registered = authService.register(login, password);
             if (!registered) {
+                logger.info("Registration failed, user already exists: " + login);
                 context.response = Response.error("User already exists");
                 return;
             }
             session.setAuthenticatedLogin(login);
+            logger.info("Registration successful: " + login);
             context.response = Response.success(List.of(), "Registration successful");
             return;
         }
 
         if (!authService.authenticate(login, password)) {
+            logger.info("Login failed for user: " + login);
             context.response = Response.error("Invalid login or password");
             return;
         }
 
         session.setAuthenticatedLogin(login);
+        logger.info("Login successful: " + login);
         context.response = Response.success(List.of(), "Login successful");
     }
 
@@ -210,6 +226,7 @@ public class AuthenticationHandler implements Consumer<ServerContext> {
         return authService.authenticate(request.login, request.password);
     }
 
+    private static final Logger logger = Logger.getLogger(AuthenticationHandler.class);
     private final SessionManager sessionManager;
     private final AuthService authService;
 }

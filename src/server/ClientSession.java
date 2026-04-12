@@ -6,6 +6,8 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
 
+import org.apache.log4j.Logger;
+
 import core.ParameterRequest;
 import ui.Commands;
 
@@ -30,6 +32,7 @@ public class ClientSession {
         this.lastActivity = createdAt;
         this.pendingParameters = new LinkedList<>();
         this.collectedParameters = new HashMap<>();
+        logger.debug("Created client session " + sessionId + " for " + clientAddress);
     }
 
     public long getSessionId() {
@@ -99,6 +102,7 @@ public class ClientSession {
     public void startAuthDialog(AuthAction action) {
         authAction = action;
         clearDialog();
+        logger.debug("Started auth dialog " + action + " for session " + sessionId);
     }
 
     public boolean isAuthDialogActive() {
@@ -112,6 +116,7 @@ public class ClientSession {
     public void clearAuthDialog() {
         authAction = AuthAction.NONE;
         clearDialog();
+        logger.debug("Cleared auth dialog for session " + sessionId);
     }
 
     public String getAuthenticatedLogin() {
@@ -120,6 +125,7 @@ public class ClientSession {
 
     public void setAuthenticatedLogin(String authenticatedLogin) {
         this.authenticatedLogin = authenticatedLogin;
+        logger.info("Session " + sessionId + " authenticated as " + authenticatedLogin);
     }
 
     @Override
@@ -130,6 +136,7 @@ public class ClientSession {
     }
 
     private static long nextSessionId = 1;
+    private static final Logger logger = Logger.getLogger(ClientSession.class);
     private final long sessionId;
     private final SocketAddress clientAddress;
     private final long createdAt;
