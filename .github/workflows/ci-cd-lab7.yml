@@ -44,7 +44,7 @@ jobs:
           test -f assembly/common/target/DragonsDB-common.jar
           test -f assembly/client/target/DragonsDB-client.jar
           test -f assembly/server/target/DragonsDB-server.jar
-          test -f db.cfg
+          test -f src/db.cfg
 
       - name: Add server to known_hosts
         run: |
