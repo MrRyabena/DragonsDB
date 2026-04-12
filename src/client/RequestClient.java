@@ -61,6 +61,8 @@ public class RequestClient implements Closeable, AutoCloseable {
 
     /** Sends a command directly to the server via UDP. */
     private Optional<Response> send(Request request) throws IOException {
+        drainStalePackets();
+
         byte[] payload = encode(request);
         logger.debug("Encoded payload size: " + payload.length + " bytes");
 
@@ -76,6 +78,43 @@ public class RequestClient implements Closeable, AutoCloseable {
         logger.debug("Received " + receivePacket.getLength() + " bytes from server");
 
         return decode(receivePacket.getData());
+    }
+
+    /**
+     * Clears delayed UDP packets from previous retries/requests.
+     * Without this, stale responses may be read as replies for a different request.
+     */
+    private void drainStalePackets() {
+        int originalTimeout;
+        try {
+            originalTimeout = socket.getSoTimeout();
+        } catch (IOException e) {
+            logger.warn("Failed to read socket timeout while draining stale packets", e);
+            return;
+        }
+
+        int drained = 0;
+        try {
+            socket.setSoTimeout(1);
+            while (true) {
+                DatagramPacket packet = new DatagramPacket(new byte[64 * 1024], 64 * 1024);
+                socket.receive(packet);
+                drained++;
+            }
+        } catch (java.net.SocketTimeoutException ignored) {
+            // Queue drained.
+        } catch (IOException e) {
+            logger.warn("Failed while draining stale packets", e);
+        } finally {
+            try {
+                socket.setSoTimeout(originalTimeout);
+            } catch (IOException e) {
+                logger.warn("Failed to restore socket timeout after draining", e);
+            }
+            if (drained > 0) {
+                logger.info("Discarded " + drained + " stale UDP packet(s) before new request");
+            }
+        }
     }
 
     /** Encodes a command line as a serialized object. */
