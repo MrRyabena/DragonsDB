@@ -210,7 +210,6 @@ public class AuthenticationHandler implements Consumer<ServerContext> {
         return authService.authenticate(request.login, request.password);
     }
 
-    private static final Logger logger = Logger.getLogger(AuthenticationHandler.class);
     private final SessionManager sessionManager;
     private final AuthService authService;
 }
