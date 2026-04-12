@@ -9,6 +9,7 @@ import org.apache.log4j.Logger;
 
 import collection.API;
 import collection.ApiCommand;
+import collection.DatabaseCollection;
 import core.ParameterRequest;
 import core.Request;
 import core.Response;
@@ -65,6 +66,11 @@ public class CommandsHandler {
                 context.response =
                         Response.error("Unknown request status: " + context.request.status);
             }
+        } catch (SecurityException e) {
+            logger.warn("Access denied while processing request: " + e.getMessage());
+            context.response = Response.error(e.getMessage());
+        } catch (IllegalArgumentException e) {
+            context.response = Response.error(e.getMessage());
         } catch (Exception e) {
             logger.error("Error processing request", e);
             context.response = Response.error("Internal server error: " + e.getMessage());
@@ -444,6 +450,7 @@ public class CommandsHandler {
             throws Exception {
         Commands command = session.getCurrentCommand();
         Map<String, Object> params = session.getCollectedParameters();
+        String ownerLogin = session.getAuthenticatedLogin();
 
         StringBuilder output = new StringBuilder();
         List<Dragon> resultDragons = new ArrayList<>();
@@ -490,6 +497,7 @@ public class CommandsHandler {
 
             case ADD:
                 {
+                    ensureAuthenticated(ownerLogin);
                     String name = (String) params.get("dragon_name");
                     Float x = (Float) params.get("dragon_x");
                     Float y = (Float) params.get("dragon_y");
@@ -500,7 +508,11 @@ public class CommandsHandler {
                     Float teeth = (Float) params.get("head_teeth");
 
                     Dragon dragon = createDragon(name, x, y, age, weight, type, headSize, teeth);
-                    collection.add(dragon);
+                    if (collection instanceof DatabaseCollection databaseCollection) {
+                        databaseCollection.add(dragon, ownerLogin);
+                    } else {
+                        collection.add(dragon);
+                    }
                     saveCollection();
                     output.append("Dragon added successfully.\n");
                     break;
@@ -508,6 +520,7 @@ public class CommandsHandler {
 
             case UPDATE_BY_ID:
                 {
+                    ensureAuthenticated(ownerLogin);
                     Long id = (Long) params.get("update_id");
                     String name = (String) params.get("dragon_name");
                     Float x = (Float) params.get("dragon_x");
@@ -520,7 +533,11 @@ public class CommandsHandler {
 
                     Dragon dragon = createDragon(name, x, y, age, weight, type, headSize, teeth);
                     setDragonId(dragon, id);
-                    collection.updateById(dragon);
+                    if (collection instanceof DatabaseCollection databaseCollection) {
+                        databaseCollection.updateById(dragon, ownerLogin);
+                    } else {
+                        collection.updateById(dragon);
+                    }
                     saveCollection();
                     resultDragons.add(dragon);
                     output.append("Dragon updated successfully.\n");
@@ -529,17 +546,28 @@ public class CommandsHandler {
 
             case REMOVE_BY_ID:
                 {
+                    ensureAuthenticated(ownerLogin);
                     Long id = (Long) params.get("remove_id");
-                    collection.removeIf(d -> d.getId() == id);
+                    if (collection instanceof DatabaseCollection databaseCollection) {
+                        databaseCollection.removeById(id, ownerLogin);
+                    } else {
+                        collection.removeIf(d -> d.getId() == id);
+                    }
                     saveCollection();
                     output.append("Dragon removed successfully.\n");
                     break;
                 }
 
             case CLEAR:
-                collection.clear();
+                ensureAuthenticated(ownerLogin);
+                if (collection instanceof DatabaseCollection databaseCollection) {
+                    int removed = databaseCollection.clear(ownerLogin);
+                    output.append("Removed ").append(removed).append(" of your dragons.\n");
+                } else {
+                    collection.clear();
+                    output.append("Collection cleared.\n");
+                }
                 saveCollection();
-                output.append("Collection cleared.\n");
                 break;
 
             case SAVE:
@@ -549,6 +577,7 @@ public class CommandsHandler {
 
             case REMOVE_GREATER:
                 {
+                    ensureAuthenticated(ownerLogin);
                     String name = (String) params.get("dragon_name");
                     Float x = (Float) params.get("dragon_x");
                     Float y = (Float) params.get("dragon_y");
@@ -559,19 +588,25 @@ public class CommandsHandler {
                     Float teeth = (Float) params.get("head_teeth");
 
                     Dragon sample = createDragon(name, x, y, age, weight, type, headSize, teeth);
-                    int before = (int) collection.countIf(d -> true);
-                    collection.removeIf(d -> d.compareTo(sample) > 0);
-                    int after = (int) collection.countIf(d -> true);
-                    int removed = before - after;
+                    int removed;
+                    if (collection instanceof DatabaseCollection databaseCollection) {
+                        removed = databaseCollection.removeIf(d -> d.compareTo(sample) > 0, ownerLogin);
+                    } else {
+                        int before = (int) collection.countIf(d -> true);
+                        collection.removeIf(d -> d.compareTo(sample) > 0);
+                        int after = (int) collection.countIf(d -> true);
+                        removed = before - after;
+                    }
                     saveCollection();
                     output.append("Removed ")
                             .append(removed)
-                            .append(" dragons greater than given.\n");
+                            .append(" your dragons greater than given.\n");
                     break;
                 }
 
             case REMOVE_LOWER:
                 {
+                    ensureAuthenticated(ownerLogin);
                     String name = (String) params.get("dragon_name");
                     Float x = (Float) params.get("dragon_x");
                     Float y = (Float) params.get("dragon_y");
@@ -582,14 +617,19 @@ public class CommandsHandler {
                     Float teeth = (Float) params.get("head_teeth");
 
                     Dragon sample = createDragon(name, x, y, age, weight, type, headSize, teeth);
-                    int before = (int) collection.countIf(d -> true);
-                    collection.removeIf(d -> d.compareTo(sample) < 0);
-                    int after = (int) collection.countIf(d -> true);
-                    int removed = before - after;
+                    int removed;
+                    if (collection instanceof DatabaseCollection databaseCollection) {
+                        removed = databaseCollection.removeIf(d -> d.compareTo(sample) < 0, ownerLogin);
+                    } else {
+                        int before = (int) collection.countIf(d -> true);
+                        collection.removeIf(d -> d.compareTo(sample) < 0);
+                        int after = (int) collection.countIf(d -> true);
+                        removed = before - after;
+                    }
                     saveCollection();
                     output.append("Removed ")
                             .append(removed)
-                            .append(" dragons lower than given.\n");
+                            .append(" your dragons lower than given.\n");
                     break;
                 }
 
@@ -653,6 +693,12 @@ public class CommandsHandler {
         }
 
         context.response = Response.success(resultDragons, output.toString());
+    }
+
+    private void ensureAuthenticated(String ownerLogin) {
+        if (ownerLogin == null || ownerLogin.isBlank()) {
+            throw new SecurityException("User is not authorized");
+        }
     }
 
     /** Creates a Dragon from collected parameters. */

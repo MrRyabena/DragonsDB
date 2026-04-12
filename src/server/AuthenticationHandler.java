@@ -53,7 +53,7 @@ public class AuthenticationHandler implements Consumer<ServerContext> {
 
     private void handleInit(ClientSession session, ServerContext context) {
         if (isRequestAuthenticated(context.request)) {
-            session.setAuthenticatedLogin(context.request.login);
+            session.setAuthenticatedLogin(normalizeLogin(context.request.login));
             logger.info("INIT accepted for user: " + context.request.login);
             context.response =
                     Response.success(List.of(), "Authorized as: " + session.getAuthenticatedLogin());
@@ -93,7 +93,7 @@ public class AuthenticationHandler implements Consumer<ServerContext> {
             return;
         }
 
-        session.setAuthenticatedLogin(context.request.login);
+        session.setAuthenticatedLogin(normalizeLogin(context.request.login));
         context.skipCommandHandling = false;
     }
 
@@ -112,7 +112,7 @@ public class AuthenticationHandler implements Consumer<ServerContext> {
             return;
         }
 
-        session.setAuthenticatedLogin(context.request.login);
+        session.setAuthenticatedLogin(normalizeLogin(context.request.login));
         context.skipCommandHandling = false;
     }
 
@@ -202,7 +202,7 @@ public class AuthenticationHandler implements Consumer<ServerContext> {
                 context.response = Response.error("User already exists");
                 return;
             }
-            session.setAuthenticatedLogin(login);
+            session.setAuthenticatedLogin(normalizeLogin(login));
             logger.info("Registration successful: " + login);
             context.response = Response.success(List.of(), "Registration successful");
             return;
@@ -214,7 +214,7 @@ public class AuthenticationHandler implements Consumer<ServerContext> {
             return;
         }
 
-        session.setAuthenticatedLogin(login);
+        session.setAuthenticatedLogin(normalizeLogin(login));
         logger.info("Login successful: " + login);
         context.response = Response.success(List.of(), "Login successful");
     }
@@ -224,6 +224,10 @@ public class AuthenticationHandler implements Consumer<ServerContext> {
             return false;
         }
         return authService.authenticate(request.login, request.password);
+    }
+
+    private String normalizeLogin(String login) {
+        return login == null ? null : login.trim().toLowerCase(Locale.ROOT);
     }
 
     private static final Logger logger = Logger.getLogger(AuthenticationHandler.class);

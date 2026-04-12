@@ -10,8 +10,10 @@ import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 import org.apache.log4j.Logger;
 
@@ -80,14 +82,21 @@ public final class PostgresDragonRepository {
         try (Connection connection = PostgresSupport.openConnection()) {
             PostgresSupport.ensureDragonSchema(connection);
             connection.setAutoCommit(false);
-            try (PreparedStatement statement =
-                    connection.prepareStatement(
-                            "update "
-                                    + TABLE
-                                    + " set name = ?, x = ?, y = ?, modified_at = now(), age = ?, weight = ?, speaking = ?, type = ?, head_size = ?, head_tooth_count = ?, owner_login = ? where id = ?")) {
+            String sql =
+                    "update "
+                            + TABLE
+                            + " set name = ?, x = ?, y = ?, modified_at = now(), age = ?, weight = ?, speaking = ?, type = ?, head_size = ?, head_tooth_count = ? where id = ?";
+            if (!isBlank(ownerLogin)) {
+                sql += " and owner_login = ?";
+            }
+
+            try (PreparedStatement statement = connection.prepareStatement(sql)) {
                 bindDragonUpdate(statement, dragon, ownerLogin);
                 int affected = statement.executeUpdate();
                 if (affected == 0) {
+                    if (!isBlank(ownerLogin) && existsById(connection, dragon.getId())) {
+                        throw new SecurityException("Access denied: dragon belongs to another user");
+                    }
                     throw new SQLException("Dragon not found");
                 }
             } catch (SQLException | RuntimeException e) {
@@ -100,6 +109,35 @@ public final class PostgresDragonRepository {
 
     public static void deleteById(long id) throws SQLException {
         deleteByIds(List.of(id));
+    }
+
+    public static void deleteById(long id, String ownerLogin) throws SQLException {
+        try (Connection connection = PostgresSupport.openConnection()) {
+            PostgresSupport.ensureDragonSchema(connection);
+            connection.setAutoCommit(false);
+            String sql = "delete from " + TABLE + " where id = ?";
+            if (!isBlank(ownerLogin)) {
+                sql += " and owner_login = ?";
+            }
+            try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setLong(1, id);
+                if (!isBlank(ownerLogin)) {
+                    statement.setString(2, ownerLogin);
+                }
+
+                int affected = statement.executeUpdate();
+                if (affected == 0) {
+                    if (!isBlank(ownerLogin) && existsById(connection, id)) {
+                        throw new SecurityException("Access denied: dragon belongs to another user");
+                    }
+                    throw new SQLException("Dragon not found");
+                }
+            } catch (SQLException | RuntimeException e) {
+                connection.rollback();
+                throw e;
+            }
+            connection.commit();
+        }
     }
 
     public static void deleteByIds(List<Long> ids) throws SQLException {
@@ -125,6 +163,35 @@ public final class PostgresDragonRepository {
         }
     }
 
+    public static void deleteByIds(List<Long> ids, String ownerLogin) throws SQLException {
+        if (ids == null || ids.isEmpty()) {
+            return;
+        }
+
+        try (Connection connection = PostgresSupport.openConnection()) {
+            PostgresSupport.ensureDragonSchema(connection);
+            connection.setAutoCommit(false);
+            String sql = "delete from " + TABLE + " where id = ?";
+            if (!isBlank(ownerLogin)) {
+                sql += " and owner_login = ?";
+            }
+            try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                for (Long id : ids) {
+                    statement.setLong(1, id);
+                    if (!isBlank(ownerLogin)) {
+                        statement.setString(2, ownerLogin);
+                    }
+                    statement.addBatch();
+                }
+                statement.executeBatch();
+            } catch (SQLException | RuntimeException e) {
+                connection.rollback();
+                throw e;
+            }
+            connection.commit();
+        }
+    }
+
     public static void clear() throws SQLException {
         try (Connection connection = PostgresSupport.openConnection()) {
             PostgresSupport.ensureDragonSchema(connection);
@@ -132,6 +199,48 @@ public final class PostgresDragonRepository {
                 statement.executeUpdate("delete from " + TABLE);
             }
         }
+    }
+
+    public static int clear(String ownerLogin) throws SQLException {
+        try (Connection connection = PostgresSupport.openConnection()) {
+            PostgresSupport.ensureDragonSchema(connection);
+            String sql = "delete from " + TABLE;
+            if (!isBlank(ownerLogin)) {
+                sql += " where owner_login = ?";
+            }
+
+            try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                if (!isBlank(ownerLogin)) {
+                    statement.setString(1, ownerLogin);
+                }
+                return statement.executeUpdate();
+            }
+        }
+    }
+
+    public static Set<Long> findOwnedIds(List<Long> ids, String ownerLogin) throws SQLException {
+        if (ids == null || ids.isEmpty() || isBlank(ownerLogin)) {
+            return Set.of();
+        }
+
+        Set<Long> result = new HashSet<>();
+        try (Connection connection = PostgresSupport.openConnection()) {
+            PostgresSupport.ensureDragonSchema(connection);
+            try (PreparedStatement statement =
+                    connection.prepareStatement(
+                            "select id from " + TABLE + " where id = ? and owner_login = ?")) {
+                for (Long id : ids) {
+                    statement.setLong(1, id);
+                    statement.setString(2, ownerLogin);
+                    try (ResultSet resultSet = statement.executeQuery()) {
+                        if (resultSet.next()) {
+                            result.add(resultSet.getLong("id"));
+                        }
+                    }
+                }
+            }
+        }
+        return result;
     }
 
     public static Date getDateCreated() {
@@ -214,8 +323,24 @@ public final class PostgresDragonRepository {
         }
         statement.setFloat(8, dragon.getHead().getSize());
         statement.setFloat(9, dragon.getHead().getToothCount());
-        statement.setString(10, ownerLogin);
-        statement.setLong(11, dragon.getId());
+        statement.setLong(10, dragon.getId());
+        if (!isBlank(ownerLogin)) {
+            statement.setString(11, ownerLogin);
+        }
+    }
+
+    private static boolean existsById(Connection connection, long id) throws SQLException {
+        try (PreparedStatement statement =
+                connection.prepareStatement("select 1 from " + TABLE + " where id = ?")) {
+            statement.setLong(1, id);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return resultSet.next();
+            }
+        }
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     private static DragonType parseDragonType(String type) {
