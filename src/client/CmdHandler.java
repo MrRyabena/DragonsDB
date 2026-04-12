@@ -27,6 +27,8 @@ public class CmdHandler implements Runnable {
 
     @Override
     public void run() {
+        sendInitRequest();
+
         while (true) {
             try {
                 String line = readers.peek().readLine();
@@ -81,8 +83,22 @@ public class CmdHandler implements Runnable {
 
     private void sendInput(String line) {
         try {
+            String stagedLogin = null;
+            String stagedPassword = null;
+            boolean authCommand = isAuthCommand(line);
+
+            String[] parsedCredentials = parseCredentialsFromAuthCommand(line);
+            String requestLogin = login;
+            String requestPassword = password;
+            if (parsedCredentials != null) {
+                stagedLogin = parsedCredentials[0];
+                stagedPassword = parsedCredentials[1];
+                requestLogin = stagedLogin;
+                requestPassword = stagedPassword;
+            }
+
             // Start command execution
-            Request request = Request.command(line);
+            Request request = Request.command(line, requestLogin, requestPassword);
             Response response = requestClient.sendRequest(request);
 
             // Interactive dialog loop for parameters
@@ -122,13 +138,35 @@ public class CmdHandler implements Runnable {
                         paramValue = "";
                     }
 
+                    if (authCommand) {
+                        String normalizedPrompt = prompt.toLowerCase();
+                        if (normalizedPrompt.contains("login") || normalizedPrompt.contains("user")) {
+                            stagedLogin = paramValue.trim();
+                            requestLogin = stagedLogin;
+                        } else if (normalizedPrompt.contains("password") || normalizedPrompt.contains("парол")) {
+                            stagedPassword = paramValue;
+                            requestPassword = stagedPassword;
+                        }
+                    }
+
                     // Send parameter response back to server
-                    Request paramResponse = Request.parameterResponse(sessionId, paramValue.trim());
+                    Request paramResponse =
+                            Request.parameterResponse(
+                                    sessionId, paramValue.trim(), requestLogin, requestPassword);
                     response = requestClient.sendRequest(paramResponse);
                 } else {
                     System.err.println(
                             "Server requested parameter but didn't provide specification.");
                     break;
+                }
+            }
+
+            if (response.status == Response.Status.SUCCESS && authCommand) {
+                if (stagedLogin != null && !stagedLogin.isBlank()) {
+                    login = stagedLogin;
+                }
+                if (stagedPassword != null && !stagedPassword.isBlank()) {
+                    password = stagedPassword;
                 }
             }
 
@@ -165,6 +203,50 @@ public class CmdHandler implements Runnable {
         } catch (IllegalStateException e) {
             System.err.println("Error: " + e.getMessage());
         }
+    }
+
+    private void sendInitRequest() {
+        try {
+            Request initRequest = new Request();
+            initRequest.status = Request.Status.INIT;
+            initRequest.login = login;
+            initRequest.password = password;
+
+            Response response = requestClient.sendRequest(initRequest);
+            if (response != null && response.message != null && !response.message.isEmpty()) {
+                consoleWriter.write(response.message + "\n");
+                consoleWriter.flush();
+            }
+        } catch (Exception e) {
+            logger.warn("Failed to perform init handshake: " + e.getMessage());
+        }
+    }
+
+    private boolean isAuthCommand(String line) {
+        String normalized = line.trim().toLowerCase();
+        return normalized.equals("login")
+                || normalized.startsWith("login ")
+                || normalized.equals("register")
+                || normalized.startsWith("register ");
+    }
+
+    private String[] parseCredentialsFromAuthCommand(String line) {
+        if (!isAuthCommand(line)) {
+            return null;
+        }
+
+        String[] parts = line.trim().split("\\s+", 3);
+        if (parts.length < 3) {
+            return null;
+        }
+
+        String parsedLogin = parts[1].trim();
+        String parsedPassword = parts[2];
+        if (parsedLogin.isEmpty() || parsedPassword.isBlank()) {
+            return null;
+        }
+
+        return new String[] {parsedLogin, parsedPassword};
     }
 
     private void handleExecuteScript(String line) {
@@ -227,4 +309,6 @@ public class CmdHandler implements Runnable {
     private final RequestClient requestClient;
     private final Deque<BufferedReader> readers = new ArrayDeque<>();
     private Writer consoleWriter = new OutputStreamWriter(System.out);
+    private String login;
+    private String password;
 }
