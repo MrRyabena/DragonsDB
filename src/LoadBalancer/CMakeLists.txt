@@ -9,6 +9,12 @@ find_package(Boost REQUIRED COMPONENTS system)
 add_executable(LoadBalancer
     src/main.cpp
     src/UdpServer.cpp
+    src/PacketHandler.cpp
+    src/RoundRobinStrategy.cpp
+    src/IpHashStrategy.cpp
+    src/WeightedRoundRobinStrategy.cpp
+    src/LeastConnectionsStrategy.cpp
+    src/WireHeader.cpp
 )
 
 target_include_directories(LoadBalancer PRIVATE include)
