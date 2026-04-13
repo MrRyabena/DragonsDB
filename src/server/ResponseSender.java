@@ -19,7 +19,11 @@ public class ResponseSender implements Consumer<ServerContext> {
     @Override
     public void accept(ServerContext context) {
         try {
-            if (channel == null || context.clientAddress == null || context.response == null) {
+            if (channel == null
+                    || context.clientAddress == null
+                    || context.response == null
+                    || context.responseData == null
+                    || !context.responseData.hasRemaining()) {
                 return;
             }
             channel.send(context.responseData, context.clientAddress);

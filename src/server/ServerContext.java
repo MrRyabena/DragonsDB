@@ -12,12 +12,14 @@ public class ServerContext {
     public Request request;
     public Response response;
     public ByteBuffer responseData;
+    public long requestId;
     public long sessionId;
     public boolean skipCommandHandling;
 
     public ServerContext() {
         requestData = ByteBuffer.allocate(64 * 1024);
         responseData = ByteBuffer.allocate(64 * 1024);
+        requestId = 0;
         sessionId = 0;
         skipCommandHandling = false;
     }

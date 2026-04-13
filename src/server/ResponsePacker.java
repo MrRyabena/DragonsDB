@@ -1,6 +1,9 @@
 package server;
 
+import java.io.IOException;
 import java.util.function.Consumer;
+
+import core.WireFrame;
 
 public class ResponsePacker implements Consumer<ServerContext> {
     public ResponsePacker() {}
@@ -12,14 +15,11 @@ public class ResponsePacker implements Consumer<ServerContext> {
         }
         try {
             context.responseData.clear();
-            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
-            java.io.ObjectOutputStream oos = new java.io.ObjectOutputStream(baos);
-            oos.writeObject(context.response);
-            oos.flush();
-            byte[] responseBytes = baos.toByteArray();
+            context.response.sessionId = context.sessionId;
+            byte[] responseBytes = WireFrame.wrapResponse(context.response, context.requestId).toBytes();
             context.responseData.put(responseBytes);
             context.responseData.flip();
-        } catch (Exception e) {
+        } catch (IOException e) {
             logger.error("Failed to serialize response", e);
             context.responseData.clear();
         }

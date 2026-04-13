@@ -1,12 +1,11 @@
 package server;
 
-import java.io.ByteArrayInputStream;
-import java.io.ObjectInputStream;
 import java.util.function.Consumer;
 
 import org.apache.log4j.Logger;
 
 import core.Request;
+import core.WireFrame;
 
 /**
  * Deserializes incoming request data from the client.
@@ -29,11 +28,17 @@ public class RequestReader implements Consumer<ServerContext> {
         context.requestData.get(data);
 
         try {
-            ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(data));
+            WireFrame frame = WireFrame.fromBytes(data, data.length);
+            if (frame.kind != WireFrame.Kind.REQUEST) {
+                logger.warn("Received non-request frame: " + frame.kind);
+                context.request = new Request();
+                return;
+            }
 
-            // Read the command line
-            context.request = (Request) ois.readObject();
-            logger.debug("Received input.");           
+            context.requestId = frame.requestId;
+            context.sessionId = frame.sessionId;
+            context.request = frame.unwrapRequest();
+            logger.debug("Received input. requestId=" + context.requestId);
 
         } catch (Exception e) {
             logger.error("Failed to decode request", e);

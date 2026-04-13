@@ -1,22 +1,20 @@
 package client;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.time.Duration;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.log4j.Logger;
 
 import core.Defaults;
 import core.Request;
 import core.Response;
+import core.WireFrame;
 
 /**
  * Simplified UDP client for sending commands to the server. Converts command strings and script
@@ -63,8 +61,10 @@ public class RequestClient implements Closeable, AutoCloseable {
     private Optional<Response> send(Request request) throws IOException {
         drainStalePackets();
 
-        byte[] payload = encode(request);
-        logger.debug("Encoded payload size: " + payload.length + " bytes");
+        long requestId = nextRequestId.incrementAndGet();
+        byte[] payload = WireFrame.wrapRequest(request, requestId).toBytes();
+        logger.debug(
+                "Encoded payload size: " + payload.length + " bytes (requestId=" + requestId + ")");
 
         InetAddress serverIp = InetAddress.getByName(serverHost);
         DatagramPacket sendPacket =
@@ -73,11 +73,18 @@ public class RequestClient implements Closeable, AutoCloseable {
         logger.debug("Packet sent to " + serverHost + ":" + serverPort);
 
         byte[] receive = new byte[64 * 1024]; // 64KB buffer for response
-        DatagramPacket receivePacket = new DatagramPacket(receive, receive.length);
-        socket.receive(receivePacket);
-        logger.debug("Received " + receivePacket.getLength() + " bytes from server");
+        while (true) {
+            DatagramPacket receivePacket = new DatagramPacket(receive, receive.length);
+            socket.receive(receivePacket);
+            logger.debug("Received " + receivePacket.getLength() + " bytes from server");
 
-        return decode(receivePacket.getData());
+            Optional<Response> decoded = decode(receivePacket.getData(), receivePacket.getLength(), requestId);
+            if (decoded.isPresent()) {
+                return decoded;
+            }
+
+            logger.warn("Discarded UDP response with unexpected header or requestId");
+        }
     }
 
     /**
@@ -117,28 +124,26 @@ public class RequestClient implements Closeable, AutoCloseable {
         }
     }
 
-    /** Encodes a command line as a serialized object. */
-    private byte[] encode(Request request) throws IOException {
-        try (var baos = new ByteArrayOutputStream();
-                var oos = new ObjectOutputStream(baos)) {
-            oos.writeObject(request);
-            oos.flush();
-            return baos.toByteArray();
-        } catch (IOException e) {
-            logger.error("Failed to encode command: " + e.getMessage(), e);
-            throw new IllegalStateException(
-                    "Failed to encode request payload: " + e.getMessage(), e);
-        }
-    }
-
-    private Optional<Response> decode(byte[] raw) {
-        try (var bais = new ByteArrayInputStream(raw);
-                var ois = new ObjectInputStream(bais)) {
-            return Optional.of((Response) ois.readObject());
+    private Optional<Response> decode(byte[] raw, int length, long expectedRequestId) {
+        try {
+            WireFrame frame = WireFrame.fromBytes(raw, length);
+            if (frame.kind != WireFrame.Kind.RESPONSE) {
+                logger.warn("Ignoring non-response frame: " + frame.kind);
+                return Optional.empty();
+            }
+            if (frame.requestId != expectedRequestId) {
+                logger.warn(
+                        "Ignoring response for unexpected requestId "
+                                + frame.requestId
+                                + ", expected "
+                                + expectedRequestId);
+                return Optional.empty();
+            }
+            return Optional.of(frame.unwrapResponse());
         } catch (Exception e) {
-            logger.error(e.getStackTrace());
+            logger.error("Failed to decode response frame", e);
+            return Optional.empty();
         }
-        return Optional.empty();
     }
 
     @Override
@@ -154,4 +159,5 @@ public class RequestClient implements Closeable, AutoCloseable {
     private final DatagramSocket socket;
     private static final Duration RESPONSE_TIMEOUT = Duration.ofMillis(Defaults.RESPONSE_TIMEOUT);
     private static final Logger logger = Logger.getLogger(RequestClient.class);
+    private final AtomicLong nextRequestId = new AtomicLong(0);
 }
