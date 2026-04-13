@@ -14,16 +14,20 @@ namespace lb {
 
     class UdpServer {
     public:
-        using PacketHandler = std::function<void(
+        using PacketCallback = std::function<void(
+                UdpServer& server,
                 const std::vector<std::uint8_t>& payload,
                 const boost::asio::ip::udp::endpoint& remoteEndpoint)>;
 
-        UdpServer(std::string bindAddress, std::uint16_t port, PacketHandler onPacket = {});
+        UdpServer(std::string bindAddress, std::uint16_t port, PacketCallback onPacket = {});
         ~UdpServer();
 
         void start();
         void stop();
         bool isRunning() const;
+        void sendTo(
+            const std::vector<std::uint8_t>& payload,
+            const boost::asio::ip::udp::endpoint& remoteEndpoint);
 
     private:
         void m_doReceive();
@@ -33,9 +37,10 @@ namespace lb {
         boost::asio::ip::udp::socket m_socket;
         boost::asio::ip::udp::endpoint m_remote_endpoint;
         std::array<std::uint8_t, 64 * 1024> m_buffer{};
+        std::array<std::uint8_t, 64 * 1024> m_send_buffer{};
         std::thread m_worker_thread;
         std::atomic_bool m_running{ false };
-        PacketHandler m_on_packet;
+        PacketCallback m_on_packet;
         std::string m_bind_address;
         std::uint16_t m_port;
     };

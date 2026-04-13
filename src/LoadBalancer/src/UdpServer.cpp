@@ -9,7 +9,7 @@ namespace lb {
 namespace net = boost::asio;
 using ErrorCode = boost::system::error_code;
 
-UdpServer::UdpServer(std::string bind_address, std::uint16_t port, PacketHandler on_packet)
+UdpServer::UdpServer(std::string bind_address, std::uint16_t port, PacketCallback on_packet)
     : m_socket(m_io_context),
       m_on_packet(std::move(on_packet)),
       m_bind_address(std::move(bind_address)),
@@ -80,6 +80,31 @@ bool UdpServer::isRunning() const {
     return m_running.load();
 }
 
+void UdpServer::sendTo(
+        const std::vector<std::uint8_t>& payload,
+        const boost::asio::ip::udp::endpoint& remoteEndpoint) {
+    if (!m_running.load()) {
+        return;
+    }
+
+    if (payload.size() > m_send_buffer.size()) {
+        throw std::runtime_error("UDP payload exceeds max datagram size");
+    }
+
+    std::copy(payload.begin(), payload.end(), m_send_buffer.begin());
+
+    ErrorCode error_code;
+    const auto sent =
+            m_socket.send_to(net::buffer(m_send_buffer.data(), payload.size()), remoteEndpoint, 0, error_code);
+    if (error_code) {
+        throw std::runtime_error("Failed to send UDP packet: " + error_code.message());
+    }
+
+    if (sent != payload.size()) {
+        throw std::runtime_error("Failed to send full UDP payload");
+    }
+}
+
 void UdpServer::m_doReceive() {
     m_socket.async_receive_from(
             net::buffer(m_buffer),
@@ -105,7 +130,7 @@ void UdpServer::m_handleReceive(const ErrorCode& error, std::size_t bytesReceive
     }
 
     std::vector<std::uint8_t> payload(m_buffer.begin(), m_buffer.begin() + bytesReceived);
-    m_on_packet(payload, m_remote_endpoint);
+    m_on_packet(*this, payload, m_remote_endpoint);
 
     if (m_running.load()) {
         m_doReceive();
