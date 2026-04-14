@@ -33,28 +33,31 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y sshpass
 
-      - name: Install LoadBalancer build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake g++ libboost-system-dev
-
       - name: Build with autobuild.sh
         run: |
           chmod +x assembly/autobuild.sh
           cd assembly
           ./autobuild.sh
 
-      - name: Build LoadBalancer
-        run: |
-          cmake -S src/LoadBalancer -B src/LoadBalancer/build
-          cmake --build src/LoadBalancer/build -j
+      - name: Build LoadBalancer (FreeBSD)
+        uses: vmactions/freebsd-vm@v1
+        with:
+          release: "14.2"
+          usesh: true
+          prepare: |
+            pkg update
+            pkg install -y cmake ninja boost-all
+          run: |
+            cmake -S src/LoadBalancer -B src/LoadBalancer/build-freebsd -G Ninja
+            cmake --build src/LoadBalancer/build-freebsd -j
+            file src/LoadBalancer/build-freebsd/LoadBalancer
 
       - name: Verify built artifacts
         run: |
           test -f assembly/common/target/DragonsDB-common.jar
           test -f assembly/client/target/DragonsDB-client.jar
           test -f assembly/server/target/DragonsDB-server.jar
-          test -f src/LoadBalancer/build/LoadBalancer
+          test -f src/LoadBalancer/build-freebsd/LoadBalancer
           test -f scripts/start.sh
 
       - name: Add server to known_hosts
@@ -76,7 +79,7 @@ jobs:
             assembly/common/target/DragonsDB-common.jar \
             assembly/client/target/DragonsDB-client.jar \
             assembly/server/target/DragonsDB-server.jar \
-            src/LoadBalancer/build/LoadBalancer \
+            src/LoadBalancer/build-freebsd/LoadBalancer \
             scripts/start.sh \
             "$SSH_USER@$SSH_HOST:~/$REMOTE_DIR/"
 
