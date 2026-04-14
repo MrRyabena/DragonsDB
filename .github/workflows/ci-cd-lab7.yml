@@ -45,7 +45,7 @@ jobs:
           release: "14.4"
           usesh: true
           prepare: |
-            pkg install -y cmake ninja boost-all
+            pkg install -y cmake ninja boost-libs
           run: |
             cmake -S src/LoadBalancer -B src/LoadBalancer/build-freebsd -G Ninja
             cmake --build src/LoadBalancer/build-freebsd -j
