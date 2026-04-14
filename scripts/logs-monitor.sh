@@ -67,6 +67,23 @@ list_logs() {
   ls -lh "$LOG_DIR_ABS"/*.log 2>/dev/null || echo "No log files found yet."
 }
 
+follow_log_file() {
+  local file_path="$1"
+  local label="$2"
+  local color="$3"
+
+  tail -n 0 -F "$file_path" 2>/dev/null | while IFS= read -r line; do
+    echo -e "${color}[${label}]${NC} $line"
+  done
+}
+
+server_log_files() {
+  shopt -s nullglob
+  local files=("$LOG_DIR_ABS"/server-*.log)
+  shopt -u nullglob
+  printf '%s\n' "${files[@]}"
+}
+
 show_real_time() {
   local pattern="$1"
   local display_name="$2"
@@ -78,10 +95,10 @@ show_real_time() {
   fi
 
   if [[ "$use_pager" == "less" ]]; then
-    tail -f $LOG_DIR_ABS/$pattern 2>/dev/null | less +F
+    tail -n 0 -F $LOG_DIR_ABS/$pattern 2>/dev/null | less +F
   else
     echo -e "${CYAN}=== $display_name (press Ctrl+C to stop) ===${NC}"
-    tail -f $LOG_DIR_ABS/$pattern 2>/dev/null
+    tail -n 0 -F $LOG_DIR_ABS/$pattern 2>/dev/null
   fi
 }
 
@@ -105,35 +122,30 @@ show_all_realtime() {
   echo -e "Starting log monitoring for ALL components..."
   echo -e "Logs directory: ${BLUE}$LOG_DIR_ABS${NC}"
   echo -e "Press ${YELLOW}Ctrl+C${NC} to exit\n"
-  
-  # Create named pipes for multiplexing
-  mkfifo /tmp/client_pipe_$$ /tmp/servers_pipe_$$ /tmp/lb_pipe_$$ 2>/dev/null || true
-  
-  # Function to show colored output
-  show_colored() {
-    local color="$1"
-    local label="$2"
-    local pipe="$3"
-    
-    while IFS= read -r line; do
-      echo -e "${color}[${label}]${NC} $line"
-    done < "$pipe"
-  }
-  
-  # Start tailing each  log file
-  tail -f "$LOG_DIR_ABS"/client.log 2>/dev/null > /tmp/client_pipe_$$ &
-  tail -f "$LOG_DIR_ABS"/server*.log 2>/dev/null > /tmp/servers_pipe_$$ &
-  tail -f "$LOG_DIR_ABS"/loadbalancer.log 2>/dev/null > /tmp/lb_pipe_$$ &
-  
-  # Show colored output
-  (show_colored "$GREEN" "CLIENT " /tmp/client_pipe_$$) &
-  (show_colored "$BLUE" "SERVERS" /tmp/servers_pipe_$$) &
-  (show_colored "$MAGENTA" "LB" /tmp/lb_pipe_$$) &
-  
+
+  mkdir -p "$LOG_DIR_ABS"
+
+  touch "$LOG_DIR_ABS/client.log" "$LOG_DIR_ABS/loadbalancer.log"
+
+  local server_logs=()
+  local server_log
+  while IFS= read -r server_log; do
+    [[ -n "$server_log" ]] && server_logs+=("$server_log")
+  done < <(server_log_files)
+
+  follow_log_file "$LOG_DIR_ABS/client.log" "CLIENT" "$GREEN" &
+  follow_log_file "$LOG_DIR_ABS/loadbalancer.log" "LB" "$MAGENTA" &
+
+  if [[ "${#server_logs[@]}" -eq 0 ]]; then
+    echo -e "${YELLOW}Waiting for server log files to appear...${NC}"
+  else
+    for server_log in "${server_logs[@]}"; do
+      port="$(basename "$server_log" | grep -oE '[0-9]+' | head -n 1)"
+      follow_log_file "$server_log" "SERVER:${port:-?}" "$BLUE" &
+    done
+  fi
+
   wait
-  
-  # Cleanup
-  rm -f /tmp/client_pipe_$$ /tmp/servers_pipe_$$ /tmp/lb_pipe_$$ 2>/dev/null || true
 }
 
 show_combined() {
@@ -143,18 +155,29 @@ show_combined() {
   echo -e "\n${YELLOW}Packet Flow Visualization:${NC}"
   echo -e "  Client -> [LB: port 5000] -> [Servers: 5001-5003] -> back to Client\n"
   echo -e "Press ${YELLOW}Ctrl+C${NC} to exit\n"
-  
-  # Use tail -f with process substitution for better real-time display
-  tail -f "$LOG_DIR_ABS"/server*.log "$LOG_DIR_ABS"/loadbalancer.log 2>/dev/null | while IFS= read -r line; do
-    if [[ "$line" =~ "loadbalancer.log:" ]]; then
-      echo -e "${MAGENTA}[LB]${NC} ${line#*:}"
-    elif [[ "$line" =~ "server-" ]]; then
-      port=$(echo "$line" | grep -oE 'server-[0-9]+' | grep -oE '[0-9]+')
-      echo -e "${BLUE}[SERVER:$port]${NC} ${line#*:}"
-    else
-      echo "$line"
-    fi
-  done
+
+  mkdir -p "$LOG_DIR_ABS"
+
+  touch "$LOG_DIR_ABS/loadbalancer.log"
+
+  local server_logs=()
+  local server_log
+  while IFS= read -r server_log; do
+    [[ -n "$server_log" ]] && server_logs+=("$server_log")
+  done < <(server_log_files)
+
+  follow_log_file "$LOG_DIR_ABS/loadbalancer.log" "LB" "$MAGENTA" &
+
+  if [[ "${#server_logs[@]}" -eq 0 ]]; then
+    echo -e "${YELLOW}Waiting for server log files to appear...${NC}"
+  else
+    for server_log in "${server_logs[@]}"; do
+      port="$(basename "$server_log" | grep -oE '[0-9]+' | head -n 1)"
+      follow_log_file "$server_log" "SERVER:${port:-?}" "$BLUE" &
+    done
+  fi
+
+  wait
 }
 
 show_banner() {
