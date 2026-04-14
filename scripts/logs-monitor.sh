@@ -120,7 +120,7 @@ show_all_realtime() {
     done < "$pipe"
   }
   
-  # Start tailing each log file
+  # Start tailing each  log file
   tail -f "$LOG_DIR_ABS"/client.log 2>/dev/null > /tmp/client_pipe_$$ &
   tail -f "$LOG_DIR_ABS"/server*.log 2>/dev/null > /tmp/servers_pipe_$$ &
   tail -f "$LOG_DIR_ABS"/loadbalancer.log 2>/dev/null > /tmp/lb_pipe_$$ &
