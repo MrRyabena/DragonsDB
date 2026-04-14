@@ -36,6 +36,10 @@ jobs:
         run: |
           test -f scripts/start.sh
           test -f scripts/run-client.sh
+          test -f scripts/logs-monitor.sh
+          test -f scripts/logs.sh
+          test -f scripts/logs-manage.sh
+          test -f scripts/demo.sh
 
       - name: Add server to known_hosts
         run: |
@@ -55,13 +59,19 @@ jobs:
           sshpass -p "$SSH_PASSWORD" scp -P "$PORT" -o StrictHostKeyChecking=no \
             scripts/start.sh \
             scripts/run-client.sh \
+            scripts/logs-monitor.sh \
+            scripts/logs.sh \
+            scripts/logs-manage.sh \
+            scripts/demo.sh \
             "$SSH_USER@$SSH_HOST:~/$REMOTE_DIR/"
 
       - name: Ensure executable permissions
         run: |
           PORT="${SSH_PORT:-2222}"
           sshpass -p "$SSH_PASSWORD" ssh -p "$PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
-            "chmod +x ~/$REMOTE_DIR/start.sh ~/$REMOTE_DIR/run-client.sh"
+            "chmod +x ~/$REMOTE_DIR/start.sh ~/$REMOTE_DIR/run-client.sh \
+             ~/$REMOTE_DIR/logs-monitor.sh ~/$REMOTE_DIR/logs.sh \
+             ~/$REMOTE_DIR/logs-manage.sh ~/$REMOTE_DIR/demo.sh"
 
       - name: Restart lab stack
         run: |
