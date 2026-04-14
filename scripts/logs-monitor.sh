@@ -2,8 +2,15 @@
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LOGS_DIR="${LOGS_DIR:-../logs}"
-LOG_DIR_ABS="$(cd "$LOGS_DIR" 2>/dev/null && pwd || echo "$LOGS_DIR")"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+DEFAULT_LOGS_DIR="$PROJECT_ROOT/logs"
+LOGS_DIR="${LOGS_DIR:-$DEFAULT_LOGS_DIR}"
+
+if [[ "$LOGS_DIR" = /* ]]; then
+  LOG_DIR_ABS="$LOGS_DIR"
+else
+  LOG_DIR_ABS="$PROJECT_ROOT/$LOGS_DIR"
+fi
 
 MODE="${1:-help}"
 FOLLOW="${2:-rt}"  # 'rt' for real-time, anything else for history
