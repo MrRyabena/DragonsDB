@@ -1,13 +1,19 @@
-name: CI/CD Lab 7 Deploy
+name: Deploy Lab 7 LoadBalancer
 
 on:
   push:
     branches:
       - main
+    paths:
+      - "src/LoadBalancer/**"
   workflow_dispatch:
 
+concurrency:
+  group: lab7-deploy
+  cancel-in-progress: true
+
 jobs:
-  build-and-deploy:
+  deploy-loadbalancer:
     runs-on: ubuntu-latest
 
     env:
@@ -21,23 +27,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
-          cache: maven
-
       - name: Install deploy tools
         run: |
           sudo apt-get update
           sudo apt-get install -y sshpass
-
-      - name: Build with autobuild.sh
-        run: |
-          chmod +x assembly/autobuild.sh
-          cd assembly
-          ./autobuild.sh
 
       - name: Build LoadBalancer (FreeBSD)
         uses: vmactions/freebsd-vm@v1
@@ -53,11 +46,7 @@ jobs:
 
       - name: Verify built artifacts
         run: |
-          test -f assembly/common/target/DragonsDB-common.jar
-          test -f assembly/client/target/DragonsDB-client.jar
-          test -f assembly/server/target/DragonsDB-server.jar
           test -f src/LoadBalancer/build-freebsd/LoadBalancer
-          test -f scripts/start.sh
 
       - name: Add server to known_hosts
         run: |
@@ -71,31 +60,27 @@ jobs:
           sshpass -p "$SSH_PASSWORD" ssh -p "$PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
             "mkdir -p ~/$REMOTE_DIR"
 
-      - name: Deploy jars to server
+      - name: Deploy LoadBalancer binary
         run: |
           PORT="${SSH_PORT:-2222}"
           sshpass -p "$SSH_PASSWORD" scp -P "$PORT" -o StrictHostKeyChecking=no \
-            assembly/common/target/DragonsDB-common.jar \
-            assembly/client/target/DragonsDB-client.jar \
-            assembly/server/target/DragonsDB-server.jar \
             src/LoadBalancer/build-freebsd/LoadBalancer \
-            scripts/start.sh \
             "$SSH_USER@$SSH_HOST:~/$REMOTE_DIR/"
 
-      - name: Make remote startup script executable
+      - name: Ensure executable permissions
         run: |
           PORT="${SSH_PORT:-2222}"
           sshpass -p "$SSH_PASSWORD" ssh -p "$PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
-            "chmod +x ~/$REMOTE_DIR/start.sh ~/$REMOTE_DIR/LoadBalancer"
+            "chmod +x ~/$REMOTE_DIR/LoadBalancer"
 
-      - name: Start lab stack on remote server
+      - name: Restart lab stack
         run: |
           PORT="${SSH_PORT:-2222}"
           sshpass -p "$SSH_PASSWORD" ssh -p "$PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
-            "mkdir -p ~/$REMOTE_DIR/logs && cd ~/$REMOTE_DIR && nohup ./start.sh >/dev/null 2>&1 &"
+            "cd ~/$REMOTE_DIR && pkill -f 'DragonsDB-server.jar|LoadBalancer' || true; mkdir -p logs; nohup ./start.sh >logs/bootstrap.log 2>&1 &"
 
-      - name: Show remote lab_7 contents
+      - name: Check remote stack status
         run: |
           PORT="${SSH_PORT:-2222}"
           sshpass -p "$SSH_PASSWORD" ssh -p "$PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
-            "ls -lh ~/$REMOTE_DIR"
+            "sleep 4; cd ~/$REMOTE_DIR; echo '--- processes ---'; pgrep -af 'DragonsDB-server.jar|LoadBalancer' || true; echo '--- bootstrap log ---'; tail -n 120 logs/bootstrap.log || true; echo '--- loadbalancer log ---'; tail -n 80 logs/loadbalancer.log || true"

@@ -1,0 +1,89 @@
+name: Deploy Lab 7 Java
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "src/**/*.java"
+      - "assembly/**"
+      - "pom.xml"
+      - "assembly/pom.xml"
+      - "assembly/**/pom.xml"
+  workflow_dispatch:
+
+concurrency:
+  group: lab7-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy-java:
+    runs-on: ubuntu-latest
+
+    env:
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_PORT: ${{ secrets.SSH_PORT }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+      SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
+      REMOTE_DIR: labs/lab_7
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Install deploy tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y sshpass
+
+      - name: Build with autobuild.sh
+        run: |
+          chmod +x assembly/autobuild.sh
+          cd assembly
+          ./autobuild.sh
+
+      - name: Verify built artifacts
+        run: |
+          test -f assembly/common/target/DragonsDB-common.jar
+          test -f assembly/client/target/DragonsDB-client.jar
+          test -f assembly/server/target/DragonsDB-server.jar
+
+      - name: Add server to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          PORT="${SSH_PORT:-2222}"
+          ssh-keyscan -p "$PORT" "$SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Create remote directory
+        run: |
+          PORT="${SSH_PORT:-2222}"
+          sshpass -p "$SSH_PASSWORD" ssh -p "$PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
+            "mkdir -p ~/$REMOTE_DIR"
+
+      - name: Deploy Java jars
+        run: |
+          PORT="${SSH_PORT:-2222}"
+          sshpass -p "$SSH_PASSWORD" scp -P "$PORT" -o StrictHostKeyChecking=no \
+            assembly/common/target/DragonsDB-common.jar \
+            assembly/client/target/DragonsDB-client.jar \
+            assembly/server/target/DragonsDB-server.jar \
+            "$SSH_USER@$SSH_HOST:~/$REMOTE_DIR/"
+
+      - name: Restart lab stack
+        run: |
+          PORT="${SSH_PORT:-2222}"
+          sshpass -p "$SSH_PASSWORD" ssh -p "$PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
+            "cd ~/$REMOTE_DIR && pkill -f 'DragonsDB-server.jar|LoadBalancer' || true; mkdir -p logs; nohup ./start.sh >logs/bootstrap.log 2>&1 &"
+
+      - name: Check remote stack status
+        run: |
+          PORT="${SSH_PORT:-2222}"
+          sshpass -p "$SSH_PASSWORD" ssh -p "$PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
+            "sleep 4; cd ~/$REMOTE_DIR; echo '--- processes ---'; pgrep -af 'DragonsDB-server.jar|LoadBalancer' || true; echo '--- bootstrap log ---'; tail -n 120 logs/bootstrap.log || true"

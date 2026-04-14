@@ -1,0 +1,76 @@
+name: Deploy Lab 7 Scripts
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "scripts/**"
+  workflow_dispatch:
+
+concurrency:
+  group: lab7-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy-scripts:
+    runs-on: ubuntu-latest
+
+    env:
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_PORT: ${{ secrets.SSH_PORT }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+      SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
+      REMOTE_DIR: labs/lab_7
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install deploy tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y sshpass
+
+      - name: Verify script files
+        run: |
+          test -f scripts/start.sh
+          test -f scripts/run-client.sh
+
+      - name: Add server to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          PORT="${SSH_PORT:-2222}"
+          ssh-keyscan -p "$PORT" "$SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Create remote directory
+        run: |
+          PORT="${SSH_PORT:-2222}"
+          sshpass -p "$SSH_PASSWORD" ssh -p "$PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
+            "mkdir -p ~/$REMOTE_DIR"
+
+      - name: Deploy scripts
+        run: |
+          PORT="${SSH_PORT:-2222}"
+          sshpass -p "$SSH_PASSWORD" scp -P "$PORT" -o StrictHostKeyChecking=no \
+            scripts/start.sh \
+            scripts/run-client.sh \
+            "$SSH_USER@$SSH_HOST:~/$REMOTE_DIR/"
+
+      - name: Ensure executable permissions
+        run: |
+          PORT="${SSH_PORT:-2222}"
+          sshpass -p "$SSH_PASSWORD" ssh -p "$PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
+            "chmod +x ~/$REMOTE_DIR/start.sh ~/$REMOTE_DIR/run-client.sh"
+
+      - name: Restart lab stack
+        run: |
+          PORT="${SSH_PORT:-2222}"
+          sshpass -p "$SSH_PASSWORD" ssh -p "$PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
+            "cd ~/$REMOTE_DIR && pkill -f 'DragonsDB-server.jar|LoadBalancer' || true; mkdir -p logs; nohup ./start.sh >logs/bootstrap.log 2>&1 &"
+
+      - name: Check remote stack status
+        run: |
+          PORT="${SSH_PORT:-2222}"
+          sshpass -p "$SSH_PASSWORD" ssh -p "$PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
+            "sleep 4; cd ~/$REMOTE_DIR; echo '--- processes ---'; pgrep -af 'DragonsDB-server.jar|LoadBalancer' || true; echo '--- bootstrap log ---'; tail -n 120 logs/bootstrap.log || true"
