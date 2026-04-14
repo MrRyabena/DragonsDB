@@ -1,7 +1,19 @@
+#include <atomic>
+#include <chrono>
+#include <csignal>
 #include <cstdint>
 #include <exception>
 #include <iostream>
 #include <memory>
+#include <thread>
+
+#ifdef _WIN32
+#include <io.h>
+#define isatty _isatty
+#define fileno _fileno
+#else
+#include <unistd.h>
+#endif
 
 #include "config/LoadBalancerDefaults.hpp"
 #include "net/PacketHandler.hpp"
@@ -9,6 +21,22 @@
 #include "util/BackendRegistry.hpp"
 #include "util/CommandLineOptions.hpp"
 #include "util/StrategyFactory.hpp"
+
+namespace {
+
+std::atomic_bool g_keep_running{true};
+
+void onSignal(int)
+{
+    g_keep_running.store(false);
+}
+
+bool isInteractiveStdin()
+{
+    return isatty(fileno(stdin)) != 0;
+}
+
+} // namespace
 
 int main(int argc, const char* argv[])
 {
@@ -61,8 +89,21 @@ int main(int argc, const char* argv[])
                 });
         server.start();
 
-        std::cout << "Press Enter to stop the load balancer..." << std::endl;
-        std::cin.get();
+        if (isInteractiveStdin())
+        {
+            std::cout << "Press Enter to stop the load balancer..." << std::endl;
+            std::cin.get();
+        }
+        else
+        {
+            std::signal(SIGTERM, onSignal);
+            std::signal(SIGINT, onSignal);
+
+            while (g_keep_running.load())
+            {
+                std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            }
+        }
 
         server.stop();
         return 0;
