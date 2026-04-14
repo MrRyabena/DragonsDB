@@ -10,15 +10,19 @@
 #include "util/CommandLineOptions.hpp"
 #include "util/StrategyFactory.hpp"
 
-int main(int argc, const char* argv[]) {
-    try {
+int main(int argc, const char* argv[])
+{
+    try
+    {
         const auto cli = lb::CommandLineOptions::parse(argc, argv);
-        if (cli.showHelp) {
+        if (cli.showHelp)
+        {
             lb::CommandLineOptions::printHelp(std::cout);
             return 0;
         }
 
-        for (const auto& warning : cli.warnings) {
+        for (const auto& warning : cli.warnings)
+        {
             std::cerr << warning << std::endl;
         }
 
@@ -27,8 +31,10 @@ int main(int argc, const char* argv[]) {
         lb::BackendRegistry registry;
         lb::CommandLineOptions::applyBackends(cli, registry, std::cerr);
 
-        if (registry.empty()) {
-            for (const auto port : lb::LoadBalancerDefaults::DEFAULT_BACKEND_PORTS) {
+        if (registry.empty())
+        {
+            for (const auto port : lb::LoadBalancerDefaults::DEFAULT_BACKEND_PORTS)
+            {
                 registry.registerBackend(
                         std::string(lb::LoadBalancerDefaults::DEFAULT_BACKEND_HOST),
                         port,
@@ -37,7 +43,7 @@ int main(int argc, const char* argv[]) {
         }
 
         const auto selectedStrategy =
-                lb::StrategyFactory::create(cli.strategyName, registry.weights());
+            lb::StrategyFactory::create(cli.strategyName, registry.weights());
 
         packetHandler->setStrategy(selectedStrategy);
         packetHandler->setBackends(registry.endpoints());
@@ -49,9 +55,9 @@ int main(int argc, const char* argv[]) {
             std::string(lb::LoadBalancerDefaults::DEFAULT_BIND_ADDRESS),
             lb::LoadBalancerDefaults::LISTEN_PORT,
             [packetHandler](lb::UdpServer& udpServer,
-                    const std::vector<std::uint8_t>& packet,
-                    const boost::asio::ip::udp::endpoint& remote) {
-                packetHandler->handle(udpServer, packet, remote);
+                const std::vector<std::uint8_t>& packet,
+                const boost::asio::ip::udp::endpoint& remote) {
+                    packetHandler->handle(udpServer, packet, remote);
                 });
         server.start();
 
@@ -60,7 +66,9 @@ int main(int argc, const char* argv[]) {
 
         server.stop();
         return 0;
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception& e)
+    {
         std::cerr << "LoadBalancer failed: " << e.what() << std::endl;
         return 1;
     }
