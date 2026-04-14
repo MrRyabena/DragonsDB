@@ -33,17 +33,29 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y sshpass
 
+      - name: Install LoadBalancer build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++ libboost-system-dev
+
       - name: Build with autobuild.sh
         run: |
           chmod +x assembly/autobuild.sh
           cd assembly
           ./autobuild.sh
 
+      - name: Build LoadBalancer
+        run: |
+          cmake -S src/LoadBalancer -B src/LoadBalancer/build
+          cmake --build src/LoadBalancer/build -j
+
       - name: Verify built artifacts
         run: |
           test -f assembly/common/target/DragonsDB-common.jar
           test -f assembly/client/target/DragonsDB-client.jar
           test -f assembly/server/target/DragonsDB-server.jar
+          test -f src/LoadBalancer/build/LoadBalancer
+          test -f scripts/start.sh
 
       - name: Add server to known_hosts
         run: |
@@ -64,7 +76,21 @@ jobs:
             assembly/common/target/DragonsDB-common.jar \
             assembly/client/target/DragonsDB-client.jar \
             assembly/server/target/DragonsDB-server.jar \
+            src/LoadBalancer/build/LoadBalancer \
+            scripts/start.sh \
             "$SSH_USER@$SSH_HOST:~/$REMOTE_DIR/"
+
+      - name: Make remote startup script executable
+        run: |
+          PORT="${SSH_PORT:-2222}"
+          sshpass -p "$SSH_PASSWORD" ssh -p "$PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
+            "chmod +x ~/$REMOTE_DIR/start.sh ~/$REMOTE_DIR/LoadBalancer"
+
+      - name: Start lab stack on remote server
+        run: |
+          PORT="${SSH_PORT:-2222}"
+          sshpass -p "$SSH_PASSWORD" ssh -p "$PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
+            "mkdir -p ~/$REMOTE_DIR/logs && cd ~/$REMOTE_DIR && nohup ./start.sh >/dev/null 2>&1 &"
 
       - name: Show remote lab_7 contents
         run: |
