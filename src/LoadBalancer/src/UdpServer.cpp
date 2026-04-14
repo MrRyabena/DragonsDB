@@ -15,7 +15,8 @@ UdpServer::UdpServer(std::string bind_address, std::uint16_t port, PacketCallbac
       m_bind_address(std::move(bind_address)),
       m_port(port) {
     if (!m_on_packet) {
-        m_on_packet = [](const std::vector<std::uint8_t>& payload,
+                m_on_packet = [](UdpServer&,
+                                                 const std::vector<std::uint8_t>& payload,
                          const boost::asio::ip::udp::endpoint& remoteEndpoint) {
             std::cout << "Received " << payload.size() << " bytes from " << remoteEndpoint
                       << std::endl;
