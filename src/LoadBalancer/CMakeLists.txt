@@ -9,6 +9,9 @@ find_package(Boost REQUIRED COMPONENTS system)
 add_executable(LoadBalancer
     src/main.cpp
     src/UdpServer.cpp
+    src/BackendRegistry.cpp
+    src/CommandLineOptions.cpp
+    src/StrategyFactory.cpp
     src/PacketHandler.cpp
     src/RoundRobinStrategy.cpp
     src/IpHashStrategy.cpp
