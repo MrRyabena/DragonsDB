@@ -19,6 +19,8 @@ public class Server {
     private static final Logger logger = Logger.getLogger(Server.class);
 
     public static void main(String[] args) {
+        int serverPort = parseServerPort(args);
+
         String storagePath = System.getenv("STORAGE_PATH");
         if (storagePath == null || storagePath.isBlank()) {
             storagePath = Defaults.STORAGE_PATH;
@@ -46,7 +48,9 @@ public class Server {
         ExecutorService executorService = Executors.newFixedThreadPool(threadPoolSize);
         logger.info("Thread pool created with " + threadPoolSize + " threads");
 
-        try (var connectionHandler = new ConnectionHandler()) {
+        logger.info("Starting server on UDP port: " + serverPort);
+
+        try (var connectionHandler = new ConnectionHandler(serverPort)) {
             var reader = new RequestReader();
             var sessionManager = new SessionManager();
             var authService = new AuthService();
@@ -96,6 +100,46 @@ public class Server {
                 Thread.currentThread().interrupt();
             }
             logger.info("Server stopped");
+        }
+    }
+
+    private static int parseServerPort(String[] args) {
+        int serverPort = Defaults.SERVER_PORT;
+
+        if (args == null) {
+            return serverPort;
+        }
+
+        for (String arg : args) {
+            if (arg == null) {
+                continue;
+            }
+
+            if (arg.startsWith("--port=")) {
+                String value = arg.substring("--port=".length());
+                serverPort = parsePortValue(value, serverPort);
+                continue;
+            }
+
+            if ("--port".equals(arg)) {
+                logger.warn("Use --port=<value> format. Falling back to default port: " + serverPort);
+            }
+        }
+
+        return serverPort;
+    }
+
+    private static int parsePortValue(String value, int fallbackPort) {
+        try {
+            int parsedPort = Integer.parseInt(value);
+            if (parsedPort <= 0 || parsedPort > 65535) {
+                logger.warn("Invalid server port: " + value + ", using default: " + fallbackPort);
+                return fallbackPort;
+            }
+            return parsedPort;
+        } catch (NumberFormatException e) {
+            logger.warn("Invalid server port: " + value + ", using default: " + fallbackPort);
+            return fallbackPort;
         }
     }
 }

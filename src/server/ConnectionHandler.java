@@ -7,20 +7,25 @@ import java.nio.channels.DatagramChannel;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import core.Defaults;
 import org.apache.log4j.Logger;
+
+import core.Defaults;
 
 public class ConnectionHandler implements Supplier<Optional<ServerContext>>, AutoCloseable {
 
     public ConnectionHandler() {
+        this(Defaults.SERVER_PORT);
+    }
+
+    public ConnectionHandler(int port) {
         logger.info("Starting...");
 
         try {
             channel = DatagramChannel.open();
-            channel.bind(new InetSocketAddress(Defaults.SERVER_PORT));
+            channel.bind(new InetSocketAddress(port));
             channel.configureBlocking(false);
         } catch (IOException | IllegalArgumentException e) {
-            throw new IllegalStateException("Failed to initialize UDP channel on port " + Defaults.SERVER_PORT, e);
+            throw new IllegalStateException("Failed to initialize UDP channel on port " + port, e);
         }
         context = new ServerContext();
     }
