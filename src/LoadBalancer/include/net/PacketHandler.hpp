@@ -56,6 +56,7 @@ namespace lb {
         std::shared_ptr<BalancingStrategy> m_strategy;
         std::vector<BackendEndpoint> m_backends;
         std::unordered_map<std::uint64_t, PendingRequest> m_pendingRequests;
+        std::unordered_map<std::string, std::size_t> m_clientAffinity;
         std::mutex m_mutex;
     };
 
