@@ -1,6 +1,8 @@
 package client.gui.controller;
 
 import java.util.Locale;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
 
 import client.gui.GuiClientContext;
 import client.gui.SceneManager;
@@ -9,11 +11,18 @@ import client.mvvm.model.DrawableDragon;
 import client.mvvm.service.GatewayResult;
 import client.mvvm.service.ParameterValueProvider;
 import client.mvvm.vm.MainViewModel;
+import dragon.Dragon;
 import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.DialogPane;
+import javafx.scene.control.Label;
+import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputDialog;
+import javafx.scene.layout.GridPane;
 
 /** Wires the main screen to the MVVM main view model. */
 public class MainController {
@@ -39,7 +48,7 @@ public class MainController {
     }
 
     public void refreshAsync() {
-        executeCommandAsync("show");
+        executeCommandAsync("show", createParameterProvider(), false);
     }
 
     private void bindView() {
@@ -104,11 +113,43 @@ public class MainController {
 
     private void bindActions() {
         root.getRefreshButton().setOnAction(event -> refreshAsync());
-        root.getAddButton().setOnAction(event -> executeCommandAsync(root.getCommandField().getText().isBlank() ? "add" : root.getCommandField().getText()));
-        root.getEditButton().setOnAction(event -> executeCommandAsync(root.getCommandField().getText().isBlank() ? "update_by_id" : root.getCommandField().getText()));
-        root.getDeleteButton().setOnAction(event -> executeCommandAsync(root.getCommandField().getText().isBlank() ? "remove_by_id" : root.getCommandField().getText()));
+        root.getAddButton().setOnAction(event -> handleAddAction());
+        root.getEditButton().setOnAction(event -> handleEditAction());
+        root.getDeleteButton()
+            .setOnAction(
+                event ->
+                    executeCommandAsync(
+                        root.getCommandField().getText().isBlank()
+                            ? "remove_by_id"
+                            : root.getCommandField().getText(),
+                        createParameterProvider(),
+                        true));
         root.getLogoutButton().setOnAction(event -> Platform.exit());
         root.getCommandField().setOnAction(event -> executeCommandAsync(root.getCommandField().getText()));
+    }
+
+    private void handleAddAction() {
+        DragonFormData form = askDragonForm(null);
+        if (form == null) {
+            return;
+        }
+
+        executeCommandAsync("add", createDragonFormProvider(form, null), true);
+    }
+
+    private void handleEditAction() {
+        Dragon selected = root.getTableView().getSelectionModel().getSelectedItem();
+        if (selected == null) {
+            root.getErrorLabel().setText("Select a dragon to edit");
+            return;
+        }
+
+        DragonFormData form = askDragonForm(selected);
+        if (form == null) {
+            return;
+        }
+
+        executeCommandAsync("update_by_id", createDragonFormProvider(form, selected.getId()), true);
     }
 
     private void bindLocaleSwitching() {
@@ -128,6 +169,15 @@ public class MainController {
     }
 
     private void executeCommandAsync(String command) {
+        executeCommandAsync(command, createParameterProvider(), false);
+    }
+
+    private void executeCommandAsync(String command, ParameterValueProvider provider) {
+        executeCommandAsync(command, provider, false);
+    }
+
+    private void executeCommandAsync(
+            String command, ParameterValueProvider provider, boolean refreshAfterSuccess) {
         String text = command == null ? "" : command.trim();
         if (text.isEmpty()) {
             return;
@@ -137,11 +187,18 @@ public class MainController {
                 new Task<>() {
                     @Override
                     protected GatewayResult call() {
-                        return viewModel.executeCommand(text, createParameterProvider());
+                        return viewModel.executeCommand(text, provider);
                     }
                 };
 
-        task.setOnSucceeded(event -> executeAsync(task.getValue()));
+        task.setOnSucceeded(
+                event -> {
+                    GatewayResult result = task.getValue();
+                    executeAsync(result);
+                    if (refreshAfterSuccess && result != null && result.isSuccess()) {
+                        refreshAsync();
+                    }
+                });
         task.setOnFailed(
                 event ->
                         root.getErrorLabel()
@@ -153,13 +210,152 @@ public class MainController {
     }
 
     private ParameterValueProvider createParameterProvider() {
+        return (parameterRequest, passwordInput) ->
+                askTextOnFx(
+                        parameterRequest == null ? "Enter value" : parameterRequest.prompt,
+                        parameterRequest == null ? "Value" : parameterRequest.parameterName,
+                        "");
+    }
+
+    private ParameterValueProvider createDragonFormProvider(DragonFormData form, Long updateId) {
         return (parameterRequest, passwordInput) -> {
-            TextInputDialog dialog = new TextInputDialog();
-            dialog.setTitle("DragonsDB");
-            dialog.setHeaderText(parameterRequest == null ? "Enter value" : parameterRequest.prompt);
-            dialog.setContentText(parameterRequest == null ? "Value" : parameterRequest.parameterName);
-            return dialog.showAndWait().orElse("");
+            if (parameterRequest == null || parameterRequest.parameterName == null) {
+                return "";
+            }
+
+            return switch (parameterRequest.parameterName) {
+                case "update_id" -> updateId == null ? "" : String.valueOf(updateId);
+                case "dragon_name" -> form.name;
+                case "dragon_x" -> form.x;
+                case "dragon_y" -> form.y;
+                case "dragon_age" -> form.age;
+                case "dragon_weight" -> form.weight;
+                case "dragon_type" -> form.type;
+                case "head_size" -> form.headSize;
+                case "head_teeth" -> form.headTeeth;
+                default -> "";
+            };
         };
+    }
+
+    private DragonFormData askDragonForm(Dragon selected) {
+        FutureTask<DragonFormData> task =
+                new FutureTask<>(
+                        () -> {
+                            Dialog<DragonFormData> dialog = new Dialog<>();
+                            dialog.setTitle(selected == null ? "Add dragon" : "Edit dragon");
+                            dialog.setHeaderText(selected == null ? "Enter dragon fields" : "Update dragon fields");
+
+                            DialogPane pane = dialog.getDialogPane();
+                            pane.getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+                            GridPane grid = new GridPane();
+                            grid.setHgap(8);
+                            grid.setVgap(8);
+
+                            TextField name = new TextField(selected == null ? "" : selected.getName());
+                            TextField x =
+                                    new TextField(
+                                            selected == null
+                                                    ? ""
+                                                    : String.valueOf(selected.getCoordinates().getX()));
+                            TextField y =
+                                    new TextField(
+                                            selected == null
+                                                    ? ""
+                                                    : String.valueOf(selected.getCoordinates().getY()));
+                            TextField age =
+                                    new TextField(selected == null ? "" : String.valueOf(selected.getAge()));
+                            TextField weight =
+                                    new TextField(selected == null ? "" : String.valueOf(selected.getWeight()));
+                            TextField type =
+                                    new TextField(
+                                            selected == null || selected.getType() == null
+                                                    ? ""
+                                                    : selected.getType().name());
+                            TextField headSize =
+                                    new TextField(
+                                            selected == null
+                                                    ? ""
+                                                    : String.valueOf(selected.getHead().getSize()));
+                            TextField headTeeth =
+                                    new TextField(
+                                            selected == null
+                                                    ? ""
+                                                    : String.valueOf(selected.getHead().getToothCount()));
+
+                            grid.addRow(0, new Label("Name"), name);
+                            grid.addRow(1, new Label("X"), x);
+                            grid.addRow(2, new Label("Y"), y);
+                            grid.addRow(3, new Label("Age"), age);
+                            grid.addRow(4, new Label("Weight"), weight);
+                            grid.addRow(5, new Label("Type"), type);
+                            grid.addRow(6, new Label("Head size"), headSize);
+                            grid.addRow(7, new Label("Head teeth"), headTeeth);
+
+                            pane.setContent(grid);
+
+                            dialog.setResultConverter(
+                                    btn -> {
+                                        if (btn != ButtonType.OK) {
+                                            return null;
+                                        }
+                                        return new DragonFormData(
+                                                name.getText().trim(),
+                                                x.getText().trim(),
+                                                y.getText().trim(),
+                                                age.getText().trim(),
+                                                weight.getText().trim(),
+                                                type.getText().trim(),
+                                                headSize.getText().trim(),
+                                                headTeeth.getText().trim());
+                                    });
+
+                            return dialog.showAndWait().orElse(null);
+                        });
+
+        if (Platform.isFxApplicationThread()) {
+            task.run();
+        } else {
+            Platform.runLater(task);
+        }
+
+        try {
+            return task.get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null;
+        } catch (ExecutionException e) {
+            root.getErrorLabel().setText(e.getCause() == null ? "Failed to open dialog" : e.getCause().getMessage());
+            return null;
+        }
+    }
+
+    private String askTextOnFx(String header, String content, String initialValue) {
+        FutureTask<String> task =
+                new FutureTask<>(
+                        () -> {
+                            TextInputDialog dialog = new TextInputDialog(initialValue == null ? "" : initialValue);
+                            dialog.setTitle("DragonsDB");
+                            dialog.setHeaderText(header);
+                            dialog.setContentText(content);
+                            return dialog.showAndWait().orElse("");
+                        });
+
+        if (Platform.isFxApplicationThread()) {
+            task.run();
+        } else {
+            Platform.runLater(task);
+        }
+
+        try {
+            return task.get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return "";
+        } catch (ExecutionException e) {
+            return "";
+        }
     }
 
     private void executeAsync(GatewayResult result) {
@@ -212,4 +408,14 @@ public class MainController {
                         + dragon.dragon().getWeight());
         alert.showAndWait();
     }
+
+    private record DragonFormData(
+            String name,
+            String x,
+            String y,
+            String age,
+            String weight,
+            String type,
+            String headSize,
+            String headTeeth) {}
 }
