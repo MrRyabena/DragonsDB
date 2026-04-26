@@ -21,6 +21,8 @@ namespace lb {
     public:
         using BackendEndpoint = boost::asio::ip::udp::endpoint;
 
+        // Tracks where a request came from and which backend received it.
+        // Used to route backend responses back to the original client.
         struct PendingRequest {
             BackendEndpoint clientEndpoint;
             std::size_t backendIndex = 0;
@@ -55,7 +57,9 @@ namespace lb {
 
         std::shared_ptr<BalancingStrategy> m_strategy;
         std::vector<BackendEndpoint> m_backends;
+        // requestId -> routing metadata for response correlation.
         std::unordered_map<std::uint64_t, PendingRequest> m_pendingRequests;
+        // client endpoint key -> sticky backend index.
         std::unordered_map<std::string, std::size_t> m_clientAffinity;
         std::mutex m_mutex;
     };
