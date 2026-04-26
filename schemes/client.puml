@@ -8,7 +8,7 @@ package core {
     +{static} CHARSET : Charset
     +{static} SERVER_HOST : String
     +{static} SERVER_PORT : int
-    +{static} RESPONSE_TIMEOUT_SECONDS : int
+    +{static} RESPONSE_TIMEOUT : int
   }
 
   class Coordinates {
@@ -26,12 +26,14 @@ package core {
     +command : String
     +parameterValue : String
     +sessionId : long
-    +{static} command(text: String) : Request
-    +{static} parameterResponse(sessionId: long, value: String) : Request
+    +login : String
+    +password : String
+    +{static} command(text: String, login: String, password: String) : Request
+    +{static} parameterResponse(sessionId: long, value: String, login: String, password: String) : Request
   }
 
   class Response <<Serializable>> {
-    enum Status {SUCCESS, ERROR, NEED_PARAMETER}
+    enum Status {SUCCESS, ERROR, NEED_PARAMETER, NEED_PASSWORD}
     +status : Status
     +data : List<Dragon>
     +message : String
@@ -40,6 +42,7 @@ package core {
     +{static} success(dragons: List, msg: String) : Response
     +{static} error(msg: String) : Response
     +{static} needParameter(sessionId: long, param: ParameterRequest) : Response
+    +{static} needPassword(sessionId: long, param: ParameterRequest) : Response
   }
 
   class ParameterRequest <<Serializable>> {
@@ -49,6 +52,22 @@ package core {
     +type : ParameterType
     +required : boolean
     +ParameterRequest(name, prompt, type, required)
+  }
+
+  class WireFrame <<final>> {
+    +{static} MAGIC : int
+    +{static} VERSION : short
+    +{static} MAX_PACKET_SIZE : int
+    +requestId : long
+    +sessionId : long
+    +flags : byte
+    +payload : byte[]
+    +toBytes() : byte[]
+    +{static} fromBytes(raw: byte[], length: int) : WireFrame
+    +{static} wrapRequest(request: Request, requestId: long) : WireFrame
+    +{static} wrapResponse(response: Response, requestId: long) : WireFrame
+    +unwrapRequest() : Request
+    +unwrapResponse() : Response
   }
 }
 
@@ -120,13 +139,18 @@ package client {
     -serverHost : String
     -serverPort : int
     -socket : DatagramSocket
+    -nextRequestId : AtomicLong
     +RequestClient(host: String, port: int)
     +sendRequest(request: Request) : Response
+    +close() : void
   }
 
   class CmdHandler <<Runnable>> {
     -requestClient : RequestClient
     -readers : Deque<BufferedReader>
+    -login : String
+    -password : String
+    -consoleWriter : Writer
     +CmdHandler(requestClient: RequestClient)
     +run() : void
     -sendInput(line: String) : void
@@ -147,10 +171,13 @@ package client {
 
 "core.Response" --> "core.ParameterRequest"
 "core.Response" --> "dragon.Dragon"
+"core.WireFrame" --> "core.Request"
+"core.WireFrame" --> "core.Response"
 
 "client.Client" --> "client.CmdHandler"
 "client.Client" --> "client.RequestClient"
 
+"client.RequestClient" --> "core.WireFrame"
 "client.RequestClient" --> "core.Request"
 "client.RequestClient" --> "core.Response"
 
@@ -158,6 +185,6 @@ package client {
 "client.CmdHandler" --> "core.Request"
 "client.CmdHandler" --> "core.Response"
 "client.CmdHandler" --> "core.ParameterRequest"
-"client.CmdHandler" --> "dragon.Dragon"
+"client.CmdHandler" --> "dragon.view.StringView"
 
 @enduml

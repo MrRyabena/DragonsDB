@@ -8,6 +8,10 @@ package core {
     +{static} CHARSET : Charset
     +{static} SERVER_HOST : String
     +{static} SERVER_PORT : int
+    +{static} DB_HOST : String
+    +{static} DB_PORT : int
+    +{static} DB_NAME : String
+    +{static} RESPONSE_TIMEOUT : int
   }
 
   class Coordinates {
@@ -19,20 +23,20 @@ package core {
     +setXY(x: Float, y: Float) : void
   }
 
-  class BadDataException extends RuntimeException
-
   class Request <<Serializable>> {
     enum Status {INIT, COMMAND, PARAMETER_RESPONSE, GET_SCRIPT}
     +status : Status
     +command : String
     +parameterValue : String
     +sessionId : long
-    +{static} command(text: String) : Request
-    +{static} parameterResponse(sessionId: long, value: String) : Request
+    +login : String
+    +password : String
+    +{static} command(text: String, login: String, password: String) : Request
+    +{static} parameterResponse(sessionId: long, value: String, login: String, password: String) : Request
   }
 
   class Response <<Serializable>> {
-    enum Status {SUCCESS, ERROR, NEED_PARAMETER}
+    enum Status {SUCCESS, ERROR, NEED_PARAMETER, NEED_PASSWORD}
     +status : Status
     +data : List<Dragon>
     +message : String
@@ -41,6 +45,7 @@ package core {
     +{static} success(dragons: List, msg: String) : Response
     +{static} error(msg: String) : Response
     +{static} needParameter(sessionId: long, param: ParameterRequest) : Response
+    +{static} needPassword(sessionId: long, param: ParameterRequest) : Response
   }
 
   class ParameterRequest <<Serializable>> {
@@ -50,6 +55,22 @@ package core {
     +type : ParameterType
     +required : boolean
     +ParameterRequest(name, prompt, type, required)
+  }
+
+  class WireFrame <<final>> {
+    +{static} MAGIC : int
+    +{static} VERSION : short
+    +{static} MAX_PACKET_SIZE : int
+    +requestId : long
+    +sessionId : long
+    +flags : byte
+    +payload : byte[]
+    +toBytes() : byte[]
+    +{static} fromBytes(raw: byte[], length: int) : WireFrame
+    +{static} wrapRequest(request: Request, requestId: long) : WireFrame
+    +{static} wrapResponse(response: Response, requestId: long) : WireFrame
+    +unwrapRequest() : Request
+    +unwrapResponse() : Response
   }
 }
 
@@ -132,6 +153,15 @@ package collection {
     +clear() : void
     +getBuffer() : Set<Dragon>
   }
+
+  class DatabaseCollection extends Collection {
+    +DatabaseCollection()
+    +add(element: Dragon, ownerLogin: String) : void
+    +updateById(element: Dragon, ownerLogin: String) : void
+    +clear(ownerLogin: String) : int
+    +removeIf(filter: Predicate<Dragon>, ownerLogin: String) : int
+    +removeById(id: long, ownerLogin: String) : void
+  }
 }
 
 package storage {
@@ -142,9 +172,8 @@ package storage {
     +getDateModified() : Date
   }
 
-  class FileStorage {
-    -filename : Path
-    +FileStorage(filename: Path)
+  class DatabaseStorage {
+    +DatabaseStorage()
     +save(stream: InputStream) : void
     +load() : OutputStream
     +getDateCreated() : Date
@@ -155,6 +184,12 @@ package storage {
     +logCommand(txnId: long, command: ApiCommand, dragonData: String) : long
     +commitCommand(logId: long) : void
     +rollbackCommand(logId: long) : void
+    +commitTransaction(transactionId: long) : void
+    +rollbackTransaction(transactionId: long) : void
+    +getTransactionLogs(transactionId: long) : List<CommandLog>
+    +getPendingLogsForRecovery() : List<CommandLog>
+    +clearLog() : void
+    +generateTransactionId() : long
   }
 
   class FileCommandLogger {
@@ -162,6 +197,12 @@ package storage {
     +logCommand(txnId: long, command: ApiCommand, dragonData: String) : long
     +commitCommand(logId: long) : void
     +rollbackCommand(logId: long) : void
+    +commitTransaction(transactionId: long) : void
+    +rollbackTransaction(transactionId: long) : void
+    +getTransactionLogs(transactionId: long) : List<CommandLog>
+    +getPendingLogsForRecovery() : List<CommandLog>
+    +clearLog() : void
+    +generateTransactionId() : long
   }
 
   class TransactionManager {
@@ -175,6 +216,28 @@ package storage {
     +RecoveryManager(commandLogger: CommandLogger, collection: API)
     +performRecovery() : int
   }
+
+  class PostgresSupport <<final>> {
+    +{static} DEFAULT_URL : String
+    +{static} DEFAULT_DRAGON_TABLE : String
+    +{static} openConnection() : Connection
+    +{static} ensureDragonSchema(connection: Connection) : void
+  }
+
+  class PostgresDragonRepository <<final>> {
+    +{static} loadAll() : List<Dragon>
+    +{static} insert(dragon: Dragon, ownerLogin: String) : Dragon
+    +{static} update(dragon: Dragon, ownerLogin: String) : void
+    +{static} deleteById(id: long) : void
+    +{static} deleteById(id: long, ownerLogin: String) : void
+    +{static} deleteByIds(ids: List<long>) : void
+    +{static} deleteByIds(ids: List<long>, ownerLogin: String) : void
+    +{static} clear() : void
+    +{static} clear(ownerLogin: String) : int
+    +{static} findOwnedIds(ids: List<long>, ownerLogin: String) : Set<long>
+    +{static} getDateCreated() : Date
+    +{static} getDateModified() : Date
+  }
 }
 
 package server {
@@ -184,8 +247,10 @@ package server {
 
   class ConnectionHandler <<AutoCloseable>> {
     +ConnectionHandler()
+    +ConnectionHandler(port: int)
     +get() : Optional<ServerContext>
     +getChannel() : DatagramChannel
+    +close() : void
   }
 
   class RequestReader <<Consumer>> {
@@ -209,28 +274,41 @@ package server {
     +request : Request
     +response : Response
     +responseData : ByteBuffer
+    +requestId : long
     +sessionId : long
+    +skipCommandHandling : boolean
+  }
+
+  class AuthService {
+    +register(login: String, rawPassword: String) : boolean
+    +authenticate(login: String, rawPassword: String) : boolean
+    +validateCredentials(login: String, rawPassword: String) : void
+  }
+
+  class AuthenticationHandler <<Consumer>> {
+    +AuthenticationHandler(sessionManager: SessionManager, authService: AuthService)
+    +accept(context: ServerContext) : void
   }
 
   class CommandsHandler <<Consumer>> {
-    +CommandsHandler(collection, storage, commandLogger, transactionManager)
+    +CommandsHandler(collection, storage, commandLogger, transactionManager, sessionManager)
     +handleRequest(context: ServerContext) : void
-    -handleNewCommand(session, context) : void
-    -handleParameterResponse(session, context) : void
-    -executeCommand(session, context, args) : void
-    -getRequiredParameters(command, args) : List<ParameterRequest>
-    -parseParameter(type, value) : Object
-    -createDragon(...) : Dragon
-    -setDragonId(dragon, id) : void
-    -commandsToApiCommand(cmd) : ApiCommand
+  }
+
+  class ClientRequestHandler <<Runnable>> {
+    +ClientRequestHandler(context, reader, authHandler, commandsHandler, packer, sender)
+    +run() : void
   }
 
   class ClientSession {
+    enum AuthAction {NONE, LOGIN, REGISTER}
     -sessionId : long
     -clientAddress : SocketAddress
     -currentCommand : Commands
     -pendingParameters : Queue<ParameterRequest>
     -collectedParameters : Map<String, Object>
+    -authAction : AuthAction
+    -authenticatedLogin : String
     +ClientSession(clientAddress: SocketAddress)
     +getSessionId() : long
     +getCurrentCommand() : Commands
@@ -241,6 +319,12 @@ package server {
     +addParameter(name, value) : void
     +hasMoreParameters() : boolean
     +clearDialog() : void
+    +startAuthDialog(action: AuthAction) : void
+    +isAuthDialogActive() : boolean
+    +getAuthAction() : AuthAction
+    +clearAuthDialog() : void
+    +getAuthenticatedLogin() : String
+    +setAuthenticatedLogin(authenticatedLogin: String) : void
   }
 
   class SessionManager {
@@ -248,10 +332,11 @@ package server {
     -cleanupTimer : Timer
     +SessionManager()
     +getOrCreateSession(address: SocketAddress) : ClientSession
+    +getSession(address: SocketAddress) : ClientSession
     +removeSession(address: SocketAddress) : void
-    -cleanupExpiredSessions() : void
+    +getAllSessions() : Collection<ClientSession>
+    +shutdown() : void
   }
-
 }
 
 ' --- Relationships ---
@@ -260,38 +345,61 @@ package server {
 "dragon.Dragon" o-- "dragon.DragonType"
 
 "collection.Collection" ..|> "collection.API"
-"storage.FileStorage" ..|> "storage.Storage"
+"collection.DatabaseCollection" --|> "collection.Collection"
+"storage.DatabaseStorage" ..|> "storage.Storage"
 "storage.FileCommandLogger" ..|> "storage.CommandLogger"
 "dragon.view.JsonView" ..|> "dragon.view.View"
 
 "core.Response" --> "core.ParameterRequest"
 "core.Response" --> "dragon.Dragon"
+"core.WireFrame" --> "core.Request"
+"core.WireFrame" --> "core.Response"
 
-"server.Server" --> "storage.FileStorage"
-"server.Server" --> "dragon.view.JsonView"
-"server.Server" --> "collection.Collection"
+"server.Server" --> "storage.DatabaseStorage"
+"server.Server" --> "collection.DatabaseCollection"
+"server.Server" --> "storage.FileCommandLogger"
+"server.Server" --> "storage.TransactionManager"
+"server.Server" --> "storage.RecoveryManager"
+"server.Server" --> "server.AuthService"
+"server.Server" --> "server.AuthenticationHandler"
+"server.Server" --> "server.ClientRequestHandler"
 "server.Server" --> "server.ConnectionHandler"
 "server.Server" --> "server.RequestReader"
 "server.Server" --> "server.CommandsHandler"
 "server.Server" --> "server.ResponsePacker"
 "server.Server" --> "server.ResponseSender"
-"server.Server" --> "storage.FileCommandLogger"
-"server.Server" --> "storage.TransactionManager"
-"server.Server" --> "storage.RecoveryManager"
+"server.Server" --> "server.SessionManager"
 
 "server.ConnectionHandler" --> "server.ServerContext"
 "server.RequestReader" --> "server.ServerContext"
 "server.RequestReader" --> "core.Request"
+"server.RequestReader" --> "core.WireFrame"
+"server.AuthenticationHandler" --> "server.ServerContext"
+"server.AuthenticationHandler" --> "server.SessionManager"
+"server.AuthenticationHandler" --> "server.ClientSession"
+"server.AuthenticationHandler" --> "server.AuthService"
+"server.AuthenticationHandler" --> "core.Request"
+"server.AuthenticationHandler" --> "core.Response"
+"server.AuthenticationHandler" --> "core.ParameterRequest"
 "server.ResponsePacker" --> "server.ServerContext"
 "server.ResponsePacker" --> "core.Response"
+"server.ResponsePacker" --> "core.WireFrame"
 "server.ResponseSender" --> "server.ServerContext"
+
+"server.ClientRequestHandler" --> "server.ServerContext"
+"server.ClientRequestHandler" --> "server.RequestReader"
+"server.ClientRequestHandler" --> "server.AuthenticationHandler"
+"server.ClientRequestHandler" --> "server.CommandsHandler"
+"server.ClientRequestHandler" --> "server.ResponsePacker"
+"server.ClientRequestHandler" --> "server.ResponseSender"
 
 "server.CommandsHandler" --> "server.ServerContext"
 "server.CommandsHandler" --> "server.SessionManager"
 "server.CommandsHandler" --> "server.ClientSession"
 "server.CommandsHandler" --> "core.ParameterRequest"
+"server.CommandsHandler" --> "collection.DatabaseCollection"
 "server.CommandsHandler" --> "collection.API"
-"server.CommandsHandler" --> "storage.Storage"
+"server.CommandsHandler" --> "storage.DatabaseStorage"
 "server.CommandsHandler" --> "storage.CommandLogger"
 "server.CommandsHandler" --> "storage.TransactionManager"
 "server.CommandsHandler" --> "core.Request"
@@ -303,5 +411,9 @@ package server {
 "storage.TransactionManager" --> "storage.CommandLogger"
 "storage.RecoveryManager" --> "storage.CommandLogger"
 "storage.RecoveryManager" --> "collection.API"
+"storage.DatabaseStorage" --> "storage.PostgresDragonRepository"
+"storage.DatabaseStorage" --> "dragon.view.JsonView"
+"storage.PostgresDragonRepository" --> "storage.PostgresSupport"
+"server.AuthService" --> "storage.PostgresSupport"
 
 @enduml
