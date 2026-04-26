@@ -6,6 +6,9 @@ import java.util.function.Consumer;
 
 import org.apache.log4j.Logger;
 
+/**
+ * Sends a pre-packed response datagram to the client endpoint from {@link ServerContext}.
+ */
 public class ResponseSender implements Consumer<ServerContext> {
 
     public ResponseSender(DatagramChannel channel) {
@@ -19,6 +22,7 @@ public class ResponseSender implements Consumer<ServerContext> {
     @Override
     public void accept(ServerContext context) {
         try {
+            // Guard against partially built pipeline state.
             if (channel == null
                     || context.clientAddress == null
                     || context.response == null
@@ -26,6 +30,7 @@ public class ResponseSender implements Consumer<ServerContext> {
                     || !context.responseData.hasRemaining()) {
                 return;
             }
+            // UDP send is one-shot for the current response buffer.
             channel.send(context.responseData, context.clientAddress);
         } catch (IOException e) {
             logger.error("Failed to send response", e);
@@ -34,5 +39,5 @@ public class ResponseSender implements Consumer<ServerContext> {
     }
 
     private final DatagramChannel channel;
-    static private Logger logger;
+    private static final Logger logger;
 }

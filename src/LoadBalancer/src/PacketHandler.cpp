@@ -12,6 +12,7 @@ namespace lb {
 
     std::string endpointKey(const PacketHandler::BackendEndpoint& endpoint)
     {
+        // Stable key for affinity map: "ip:port".
         std::ostringstream out;
         out << endpoint.address().to_string() << ':' << endpoint.port();
         return out.str();
@@ -92,6 +93,7 @@ namespace lb {
             const auto stickyIt = m_clientAffinity.find(clientKey);
             if (stickyIt != m_clientAffinity.end() && stickyIt->second < backendsCopy.size())
             {
+                // Keep multi-step dialogs on one backend (login/password/etc.).
                 stickyIndex = stickyIt->second;
             }
         }
@@ -131,6 +133,7 @@ namespace lb {
         const auto& backend = backendsCopy[*selectedIndex];
         {
             std::lock_guard<std::mutex> lock(m_mutex);
+            // Correlate response by requestId and preserve sticky affinity for this client.
             m_pendingRequests[header.requestId] = PendingRequest{ clientEndpoint, *selectedIndex };
             m_clientAffinity[clientKey] = *selectedIndex;
         }
@@ -164,6 +167,7 @@ namespace lb {
             const auto it = m_pendingRequests.find(header.requestId);
             if (it != m_pendingRequests.end())
             {
+                // Restore original client endpoint for reverse routing.
                 clientEndpoint = it->second.clientEndpoint;
                 const auto backendIndex = it->second.backendIndex;
                 m_pendingRequests.erase(it);
