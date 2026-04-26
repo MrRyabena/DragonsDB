@@ -1,6 +1,7 @@
 package client.gui.view;
 
 import javafx.geometry.Insets;
+import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
@@ -9,6 +10,8 @@ import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
 /** Main application shell with toolbar, table, canvas and status line. */
@@ -45,6 +48,8 @@ public class MainView extends BorderPane {
 
         VBox leftBar = new VBox(10, new Label("Filter"), filterField, commandField, addButton, editButton, deleteButton);
         leftBar.setPrefWidth(220);
+        leftBar.setMinWidth(200);
+        leftBar.setMaxWidth(280);
         leftBar.setStyle("-fx-background-color: rgba(15, 23, 42, 0.72); -fx-padding: 12; -fx-background-radius: 10; -fx-border-radius: 10; -fx-border-color: #334155;");
         leftBar.getChildren().get(0).setStyle("-fx-text-fill: white;");
         for (var node : leftBar.getChildren()) {
@@ -53,15 +58,32 @@ public class MainView extends BorderPane {
             }
         }
 
-        SplitPane center = new SplitPane(tableView, canvasView);
-        center.setDividerPositions(0.54);
+        Pane mapPane = new Pane(canvasView);
+        mapPane.setStyle("-fx-background-color: rgba(15, 23, 42, 0.8); -fx-border-color: #334155; -fx-border-radius: 8; -fx-background-radius: 8;");
+        mapPane.setPadding(new Insets(6));
+        mapPane.setMinWidth(240);
+        mapPane.setMinHeight(220);
+
+        // Keep canvas out of layout calculations to avoid SplitPane divider feedback loops.
+        canvasView.setManaged(false);
+        canvasView.relocate(6, 6);
+
+        SplitPane upperArea = new SplitPane(leftBar, mapPane);
+        upperArea.setDividerPositions(0.2);
+        SplitPane.setResizableWithParent(leftBar, false);
+        upperArea.setMinHeight(260);
+
+        SplitPane center = new SplitPane(upperArea, tableView);
+        center.setOrientation(Orientation.VERTICAL);
+        center.setDividerPositions(0.62);
+        tableView.setMinHeight(140);
+        VBox.setVgrow(center, Priority.ALWAYS);
 
         BorderPane bottom = new BorderPane();
         bottom.setLeft(statusLabel);
         bottom.setRight(errorLabel);
 
         setTop(topBar);
-        setLeft(leftBar);
         setCenter(center);
         setBottom(bottom);
     }
