@@ -17,12 +17,14 @@ import javafx.concurrent.Task;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.DialogPane;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.layout.GridPane;
+import dragon.DragonType;
 
 /** Wires the main screen to the MVVM main view model. */
 public class MainController {
@@ -260,11 +262,13 @@ public class MainController {
                                     new TextField(selected == null ? "" : String.valueOf(selected.getAge()));
                             TextField weight =
                                     new TextField(selected == null ? "" : String.valueOf(selected.getWeight()));
-                            TextField type =
-                                    new TextField(
-                                            selected == null || selected.getType() == null
-                                                    ? ""
-                                                    : selected.getType().name());
+                            
+                            ComboBox<DragonType> type = new ComboBox<>();
+                            type.getItems().addAll(DragonType.values());
+                            if (selected != null && selected.getType() != null) {
+                                type.setValue(selected.getType());
+                            }
+                            
                             TextField headSize =
                                     new TextField(
                                             selected == null
@@ -277,13 +281,13 @@ public class MainController {
                                                     : String.valueOf(selected.getHead().getToothCount()));
 
                             grid.addRow(0, new Label("Name"), name);
-                            grid.addRow(1, new Label("X"), x);
-                            grid.addRow(2, new Label("Y"), y);
-                            grid.addRow(3, new Label("Age"), age);
-                            grid.addRow(4, new Label("Weight"), weight);
+                            grid.addRow(1, new Label("X (> -359)"), x);
+                            grid.addRow(2, new Label("Y (≤ 603)"), y);
+                            grid.addRow(3, new Label("Age (> 0)"), age);
+                            grid.addRow(4, new Label("Weight (> 0)"), weight);
                             grid.addRow(5, new Label("Type"), type);
-                            grid.addRow(6, new Label("Head size"), headSize);
-                            grid.addRow(7, new Label("Head teeth"), headTeeth);
+                            grid.addRow(6, new Label("Head size (> 0)"), headSize);
+                            grid.addRow(7, new Label("Head teeth (> 0)"), headTeeth);
 
                             pane.setContent(grid);
 
@@ -298,7 +302,7 @@ public class MainController {
                                                 y.getText().trim(),
                                                 age.getText().trim(),
                                                 weight.getText().trim(),
-                                                type.getText().trim(),
+                                                type.getValue() == null ? "" : type.getValue().name(),
                                                 headSize.getText().trim(),
                                                 headTeeth.getText().trim());
                                     });
