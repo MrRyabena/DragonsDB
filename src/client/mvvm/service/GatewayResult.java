@@ -10,11 +10,14 @@ public class GatewayResult {
     public final Response.Status status;
     public final String message;
     public final List<Dragon> dragons;
+    public final List<String> ownerLogins;
 
-    public GatewayResult(Response.Status status, String message, List<Dragon> dragons) {
+    public GatewayResult(
+            Response.Status status, String message, List<Dragon> dragons, List<String> ownerLogins) {
         this.status = status;
         this.message = message;
         this.dragons = dragons;
+        this.ownerLogins = ownerLogins;
     }
 
     public boolean isSuccess() {
@@ -22,10 +25,10 @@ public class GatewayResult {
     }
 
     public static GatewayResult fromResponse(Response response) {
-        return new GatewayResult(response.status, response.message, response.data);
+        return new GatewayResult(response.status, response.message, response.data, response.ownerLogins);
     }
 
     public static GatewayResult error(String message) {
-        return new GatewayResult(Response.Status.ERROR, message, List.of());
+        return new GatewayResult(Response.Status.ERROR, message, List.of(), List.of());
     }
 }

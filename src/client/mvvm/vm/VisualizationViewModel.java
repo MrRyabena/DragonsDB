@@ -52,20 +52,33 @@ public class VisualizationViewModel extends BaseViewModel implements PropertyCha
     }
 
     private void recompute() {
-        String currentUser = sessionState.getCurrentUser().toLowerCase(Locale.ROOT);
+        String currentUser = normalizeLogin(sessionState.getCurrentUser());
         drawableDragons =
                 store.getDragons().stream()
                         .map(
                                 dragon -> {
+                        String ownerLogin = normalizeLogin(store.getOwnerLogin(dragon.getId()));
                                     double x = dragon.getCoordinates().getX();
                                     double y = dragon.getCoordinates().getY();
                                     double size = Math.max(8.0, Math.min(48.0, 8.0 + Math.log10(dragon.getWeight() + 1) * 10.0));
-                                    String colorHex = colorById(dragon.getId());
-                        boolean owned = !currentUser.isBlank() && dragon.getId() % 2 == 0;
+                                    String colorHex = ownerLogin.isBlank() ? colorById(dragon.getId()) : colorByOwner(ownerLogin);
+                                    boolean owned = !currentUser.isBlank() && currentUser.equals(ownerLogin);
                                     return new DrawableDragon(dragon, x, y, size, colorHex, owned);
                                 })
                         .collect(Collectors.toList());
         notifyViewChanged("drawableDragons", null, drawableDragons);
+    }
+
+    private String normalizeLogin(String login) {
+        return login == null ? "" : login.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String colorByOwner(String ownerLogin) {
+        int hash = ownerLogin.hashCode();
+        int r = 72 + Math.floorMod(hash, 152);
+        int g = 72 + Math.floorMod(hash / 17, 152);
+        int b = 72 + Math.floorMod(hash / 31, 152);
+        return String.format("#%02x%02x%02x", r, g, b);
     }
 
     private String colorById(long id) {

@@ -19,6 +19,7 @@ import dragon.DragonType;
 import dragon.view.JsonView;
 import dragon.view.View;
 import storage.CommandLogger;
+import storage.PostgresDragonRepository;
 import storage.Storage;
 import storage.TransactionManager;
 import ui.Commands;
@@ -202,7 +203,7 @@ public class CommandsHandler {
         List<ParameterRequest> params = new ArrayList<>();
 
         switch (command) {
-            case HELP, INFO, SHOW, CLEAR, SAVE, EXIT, HISTORY:
+            case HELP, INFO, SHOW, SHOW_WITH_OWNERS, CLEAR, SAVE, EXIT, HISTORY:
                 // No parameters needed
                 break;
 
@@ -454,6 +455,7 @@ public class CommandsHandler {
 
         StringBuilder output = new StringBuilder();
         List<Dragon> resultDragons = new ArrayList<>();
+        List<String> resultOwners = new ArrayList<>();
 
         switch (command) {
             case HELP:
@@ -461,6 +463,7 @@ public class CommandsHandler {
                 output.append("  help - show this message\n");
                 output.append("  info - show collection info\n");
                 output.append("  show - show all dragons\n");
+                output.append("  show_with_owners - show all dragons with owners\n");
                 output.append("  add - add a new dragon\n");
                 output.append("  update_by_id {id} - update dragon by id\n");
                 output.append("  remove_by_id {id} - remove dragon by id\n");
@@ -492,6 +495,24 @@ public class CommandsHandler {
                     output.append("Collection is empty.\n");
                 } else {
                     output.append("Dragons in collection:\n");
+                }
+                break;
+
+            case SHOW_WITH_OWNERS:
+                resultDragons.addAll(collection.getStream().collect(Collectors.toList()));
+                if (resultDragons.isEmpty()) {
+                    output.append("Collection is empty.\n");
+                } else {
+                    output.append("Dragons in collection with owners:\n");
+                }
+
+                if (collection instanceof DatabaseCollection) {
+                    List<Long> ids = resultDragons.stream().map(Dragon::getId).collect(Collectors.toList());
+                    resultOwners.addAll(PostgresDragonRepository.findOwnerLogins(ids));
+                } else {
+                    for (int i = 0; i < resultDragons.size(); i++) {
+                        resultOwners.add("");
+                    }
                 }
                 break;
 
@@ -692,7 +713,7 @@ public class CommandsHandler {
                 break;
         }
 
-        context.response = Response.success(resultDragons, output.toString());
+        context.response = Response.success(resultDragons, resultOwners, output.toString());
     }
 
     private void ensureAuthenticated(String ownerLogin) {
@@ -738,6 +759,8 @@ public class CommandsHandler {
                 return ApiCommand.ADD;
             case SHOW:
                 return ApiCommand.SHOW;
+            case SHOW_WITH_OWNERS:
+                return ApiCommand.SHOW_WITH_OWNERS;
             case UPDATE_BY_ID:
                 return ApiCommand.UPDATE_BY_ID;
             case REMOVE_BY_ID:

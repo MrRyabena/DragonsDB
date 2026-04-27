@@ -1,10 +1,15 @@
 package client.gui.view;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import client.mvvm.model.DrawableDragon;
+import javafx.animation.AnimationTimer;
 import javafx.animation.FadeTransition;
 import javafx.animation.ScaleTransition;
 import javafx.geometry.VPos;
@@ -16,8 +21,26 @@ import javafx.util.Duration;
 
 /** Canvas-based visualization of dragons with simple animations. */
 public class DragonCanvasView extends Canvas {
+    private static final long APPEAR_DURATION_NANOS = 420_000_000L;
+
     private List<DrawableDragon> drawables = List.of();
     private List<RenderedDragon> rendered = List.of();
+    private final Map<Long, Long> appearingSinceNanos = new HashMap<>();
+    private final AnimationTimer appearAnimation =
+            new AnimationTimer() {
+                @Override
+                public void handle(long now) {
+                    if (appearingSinceNanos.isEmpty()) {
+                        stop();
+                        return;
+                    }
+                    redraw();
+                    appearingSinceNanos.entrySet().removeIf(e -> now - e.getValue() >= APPEAR_DURATION_NANOS);
+                    if (appearingSinceNanos.isEmpty()) {
+                        stop();
+                    }
+                }
+            };
 
     public DragonCanvasView(double width, double height) {
         super(width, height);
@@ -25,7 +48,20 @@ public class DragonCanvasView extends Canvas {
     }
 
     public void setDrawables(List<DrawableDragon> drawables) {
-        this.drawables = drawables == null ? List.of() : drawables;
+        List<DrawableDragon> next = drawables == null ? List.of() : drawables;
+        Set<Long> previousIds = this.drawables.stream().map(d -> d.dragon().getId()).collect(java.util.stream.Collectors.toSet());
+        Set<Long> currentIds = next.stream().map(d -> d.dragon().getId()).collect(java.util.stream.Collectors.toCollection(HashSet::new));
+        for (Long id : currentIds) {
+            if (!previousIds.contains(id)) {
+                appearingSinceNanos.put(id, System.nanoTime());
+            }
+        }
+        appearingSinceNanos.keySet().retainAll(currentIds);
+
+        this.drawables = next;
+        if (!appearingSinceNanos.isEmpty()) {
+            appearAnimation.start();
+        }
         redraw();
     }
 
@@ -89,13 +125,16 @@ public class DragonCanvasView extends Canvas {
             double sx = offsetX + (drawable.x() - minX) * scale;
             double sy = offsetY + (drawable.y() - minY) * scale;
             double radius = Math.max(6.0, drawable.size() / 2.0);
-            double sr = Math.max(6.0, radius * scale);
+            double appear = appearanceProgress(drawable.dragon().getId());
+            double sr = Math.max(6.0, radius * scale) * (0.6 + 0.4 * appear);
             double size = sr * 2.0;
+            double alpha = 0.2 + 0.8 * appear;
 
-            gc.setFill(Color.web(drawable.colorHex()));
+            gc.setFill(Color.web(drawable.colorHex(), alpha));
             gc.fillOval(sx - sr, sy - sr, size, size);
 
-            gc.setStroke(Color.web("#e2e8f0"));
+            gc.setLineWidth(drawable.ownedByCurrentUser() ? 2.4 : 1.4);
+            gc.setStroke(drawable.ownedByCurrentUser() ? Color.web("#f8fafc", alpha) : Color.web("#cbd5e1", alpha));
             gc.strokeOval(sx - sr, sy - sr, size, size);
 
             gc.setFill(Color.WHITE);
@@ -105,6 +144,22 @@ public class DragonCanvasView extends Canvas {
         }
 
         rendered = newRendered;
+    }
+
+    private double appearanceProgress(long dragonId) {
+        Long startedAt = appearingSinceNanos.get(dragonId);
+        if (startedAt == null) {
+            return 1.0;
+        }
+
+        double t = (System.nanoTime() - startedAt) / (double) APPEAR_DURATION_NANOS;
+        if (t >= 1.0) {
+            return 1.0;
+        }
+        if (t <= 0.0) {
+            return 0.0;
+        }
+        return 1.0 - Math.pow(1.0 - t, 3.0);
     }
 
     public Optional<DrawableDragon> findAt(double x, double y) {

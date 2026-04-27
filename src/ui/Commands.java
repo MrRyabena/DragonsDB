@@ -11,6 +11,7 @@ public enum Commands {
     INFO("info"),
     ADD("add"),
     SHOW("show"),
+    SHOW_WITH_OWNERS("show_with_owners"),
     UPDATE_BY_ID("update_by_id"),
     REMOVE_BY_ID("remove_by_id"),
     CLEAR("clear"),

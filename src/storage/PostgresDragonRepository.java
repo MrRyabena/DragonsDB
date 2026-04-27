@@ -243,6 +243,27 @@ public final class PostgresDragonRepository {
         return result;
     }
 
+    public static List<String> findOwnerLogins(List<Long> ids) throws SQLException {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+
+        List<String> result = new ArrayList<>(ids.size());
+        try (Connection connection = PostgresSupport.openConnection()) {
+            PostgresSupport.ensureDragonSchema(connection);
+            try (PreparedStatement statement =
+                    connection.prepareStatement("select owner_login from " + TABLE + " where id = ?")) {
+                for (Long id : ids) {
+                    statement.setLong(1, id);
+                    try (ResultSet resultSet = statement.executeQuery()) {
+                        result.add(resultSet.next() ? resultSet.getString("owner_login") : "");
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
     public static Date getDateCreated() {
         return aggregateTimestamp("min(creation_date)");
     }

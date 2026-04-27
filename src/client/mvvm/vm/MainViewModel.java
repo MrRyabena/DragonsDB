@@ -42,18 +42,19 @@ public class MainViewModel extends BaseViewModel {
     }
 
     public GatewayResult refresh() {
-        return executeCommand("show", null);
+        return executeCommand("show_with_owners", null);
     }
 
     public GatewayResult executeCommand(String command, ParameterValueProvider parameterProvider) {
         clearError();
         setBusy(true);
         try {
+            String normalizedCommand = "show".equalsIgnoreCase(command) ? "show_with_owners" : command;
             Credentials credentials = sessionState.getCredentials();
-            GatewayResult result = gateway.sendCommand(command, credentials, parameterProvider);
+            GatewayResult result = gateway.sendCommand(normalizedCommand, credentials, parameterProvider);
             if (result.isSuccess()) {
                 if (result.dragons != null) {
-                    dragonStore.replaceAll(result.dragons);
+                    dragonStore.replaceAll(result.dragons, result.ownerLogins);
                 }
             } else {
                 setErrorMessage(result.message);

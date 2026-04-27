@@ -5,6 +5,7 @@ public enum ApiCommand {
     INFO,
     ADD,
     SHOW,
+    SHOW_WITH_OWNERS,
     UPDATE_BY_ID,
     REMOVE_BY_ID,
     CLEAR,

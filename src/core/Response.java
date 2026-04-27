@@ -19,6 +19,7 @@ public class Response implements Serializable {
 
     public Status status;
     public List<Dragon> data;  // null if not applicable
+    public List<String> ownerLogins; // optional, aligned with data by index
     public String message;  // null if not applicable
     public ParameterRequest parameterRequest;  // null if not NEED_PARAMETER response
     public long sessionId;  // Session ID for tracking dialog state
@@ -26,6 +27,7 @@ public class Response implements Serializable {
     public Response() {
         this.status = Status.SUCCESS;
         this.data = null;
+        this.ownerLogins = null;
         this.message = null;
         this.parameterRequest = null;
         this.sessionId = 0;
@@ -35,6 +37,15 @@ public class Response implements Serializable {
         Response resp = new Response();
         resp.status = Status.SUCCESS;
         resp.data = dragons;
+        resp.message = message;
+        return resp;
+    }
+
+    public static Response success(List<Dragon> dragons, List<String> ownerLogins, String message) {
+        Response resp = new Response();
+        resp.status = Status.SUCCESS;
+        resp.data = dragons;
+        resp.ownerLogins = ownerLogins;
         resp.message = message;
         return resp;
     }

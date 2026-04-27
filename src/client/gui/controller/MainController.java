@@ -50,7 +50,7 @@ public class MainController {
     }
 
     public void refreshAsync() {
-        executeCommandAsync("show", createParameterProvider(), false);
+        executeCommandAsync("show_with_owners", createParameterProvider(), false);
     }
 
     private void bindView() {
@@ -176,12 +176,16 @@ public class MainController {
         if (text.isEmpty()) {
             return;
         }
+        if ("show".equalsIgnoreCase(text)) {
+            text = "show_with_owners";
+        }
+        final String commandToRun = text;
 
         Task<GatewayResult> task =
                 new Task<>() {
                     @Override
                     protected GatewayResult call() {
-                        return viewModel.executeCommand(text, provider);
+                        return viewModel.executeCommand(commandToRun, provider);
                     }
                 };
 
