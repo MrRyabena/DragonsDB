@@ -93,16 +93,8 @@ public class MainController {
         root.getCanvasView()
                 .setOnMouseClicked(
                         event -> {
-                            DrawableDragon hit =
-                                    viewModel.getVisualizationViewModel().getDrawableDragons().stream()
-                                            .filter(
-                                                    drawable -> {
-                                                        double dx = event.getX() - drawable.x();
-                                                        double dy = event.getY() - drawable.y();
-                                                        return Math.hypot(dx, dy) <= drawable.size() / 2.0;
-                                                    })
-                                            .findFirst()
-                                            .orElse(null);
+                    DrawableDragon hit =
+                        root.getCanvasView().findAt(event.getX(), event.getY()).orElse(null);
                             if (hit != null) {
                                 viewModel.getVisualizationViewModel().selectById(hit.dragon().getId());
                                 root.getTableView().getSelectionModel().select(hit.dragon());
