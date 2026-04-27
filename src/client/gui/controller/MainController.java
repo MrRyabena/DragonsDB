@@ -134,7 +134,7 @@ public class MainController {
     private void handleEditAction() {
         Dragon selected = root.getTableView().getSelectionModel().getSelectedItem();
         if (selected == null) {
-            root.getErrorLabel().setText("Select a dragon to edit");
+            showError(text("error.edit.header"), text("error.edit.selectDragon"));
             return;
         }
 
@@ -194,9 +194,10 @@ public class MainController {
                     }
                 });
         task.setOnFailed(
-                event ->
-                        root.getErrorLabel()
-                                .setText(task.getException() == null ? "Command failed" : task.getException().getMessage()));
+            event ->
+                showError(
+                    text("error.command.header"),
+                    task.getException() == null ? text("error.unknown") : task.getException().getMessage()));
 
         Thread thread = new Thread(task, "command-task");
         thread.setDaemon(true);
@@ -322,7 +323,9 @@ public class MainController {
             Thread.currentThread().interrupt();
             return null;
         } catch (ExecutionException e) {
-            root.getErrorLabel().setText(e.getCause() == null ? "Failed to open dialog" : e.getCause().getMessage());
+            showError(
+                    text("error.dialog.header"),
+                    e.getCause() == null ? text("error.dialog.openFailed") : e.getCause().getMessage());
             return null;
         }
     }
@@ -364,11 +367,35 @@ public class MainController {
                         root.getStatusLabel().setText("Last action: success");
                         root.getErrorLabel().setText("");
                     } else {
-                        root.getErrorLabel().setText(result.message == null ? "" : result.message);
+                        showError(
+                                text("error.operation.header"),
+                                result.message == null ? text("error.unknown") : result.message);
+                        root.getErrorLabel().setText("");
                     }
                     root.getCurrentUserLabel().setText("User: " + viewModel.getCurrentUser());
                     root.getCanvasView().redraw();
                 });
+    }
+
+    private String text(String key) {
+        return context.getLocalizationService().text(key);
+    }
+
+    private void showError(String header, String message) {
+        Runnable action =
+                () -> {
+                    Alert alert = new Alert(AlertType.ERROR);
+                    alert.setTitle(text("error.title"));
+                    alert.setHeaderText(header == null || header.isBlank() ? text("error.title") : header);
+                    alert.setContentText(message == null || message.isBlank() ? text("error.unknown") : message);
+                    alert.showAndWait();
+                };
+
+        if (Platform.isFxApplicationThread()) {
+            action.run();
+        } else {
+            Platform.runLater(action);
+        }
     }
 
     private void refreshStatus() {

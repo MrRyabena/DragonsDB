@@ -18,7 +18,15 @@ public class Messages_en_CA extends ListResourceBundle {
             {"main.logout", "Sign Out"},
             {"main.filter", "Filter"},
             {"main.command", "Command"},
-            {"main.user", "User"}
+            {"main.user", "User"},
+            {"error.title", "Error"},
+            {"error.unknown", "Unknown error"},
+            {"error.edit.header", "Edit dragon"},
+            {"error.edit.selectDragon", "Select a dragon to edit"},
+            {"error.command.header", "Command failed"},
+            {"error.dialog.header", "Dialog error"},
+            {"error.dialog.openFailed", "Failed to open dialog"},
+            {"error.operation.header", "Operation failed"}
         };
     }
 }

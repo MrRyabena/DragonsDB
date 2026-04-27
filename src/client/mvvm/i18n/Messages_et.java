@@ -18,7 +18,15 @@ public class Messages_et extends ListResourceBundle {
             {"main.logout", "Logi välja"},
             {"main.filter", "Filter"},
             {"main.command", "Käsk"},
-            {"main.user", "Kasutaja"}
+            {"main.user", "Kasutaja"},
+            {"error.title", "Viga"},
+            {"error.unknown", "Tundmatu viga"},
+            {"error.edit.header", "Draakoni muutmine"},
+            {"error.edit.selectDragon", "Vali muutmiseks draakon"},
+            {"error.command.header", "Käsu täitmine nurjus"},
+            {"error.dialog.header", "Dialoogi viga"},
+            {"error.dialog.openFailed", "Dialoogi avamine ebaõnnestus"},
+            {"error.operation.header", "Toiming ebaõnnestus"}
         };
     }
 }
