@@ -10,7 +10,13 @@ import client.mvvm.vm.AuthViewModel;
 import javafx.application.Platform;
 import javafx.concurrent.Task;
 
-/** Wires login/register view actions to the MVVM auth layer. */
+/**
+ * Wires login/register view actions to authentication ViewModel.
+ *
+ * <p>Binds UI events (login button, register button, locale selector) to AuthViewModel
+ * methods. Manages async task execution, error display, and scene transitions on
+ * successful authentication.
+ */
 public class LoginController {
     private final LoginView root = new LoginView();
     private final GuiClientContext context;

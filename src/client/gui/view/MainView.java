@@ -14,7 +14,20 @@ import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
-/** Main application shell with toolbar, table, canvas and status line. */
+/**
+ * Main application shell: complete layout with toolbar, table, canvas, and status line.
+ *
+ * <p>Organizes the user interface into logical regions:
+ * <ul>
+ *   <li>Top: Title, user label, locale selector, refresh/logout buttons
+ *   <li>Left: Filter input, command input, action buttons (Add/Edit/Delete)
+ *   <li>Center: Split pane with table (top) and canvas (bottom)
+ *   <li>Bottom: Status and error messages
+ * </ul>
+ *
+ * <p>Uses dark theme (dark blue gradient). All controls are initialized here but
+ * bindings to ViewModel are done by MainController.
+ */
 public class MainView extends BorderPane {
     private final Label currentUserLabel = new Label();
     private final Label errorLabel = new Label();

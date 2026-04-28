@@ -5,7 +5,13 @@ import client.mvvm.service.ClientGateway;
 import client.mvvm.service.GatewayResult;
 import client.mvvm.state.ClientSessionState;
 
-/** Handles login/register flows and updates shared session state. */
+/**
+ * Handles login and registration flows.
+ *
+ * <p>Orchestrates authentication by sending commands to the server via ClientGateway
+ * and updating ClientSessionState on successful authentication. Inherits busy/error
+ * state management from BaseViewModel.
+ */
 public class AuthViewModel extends BaseViewModel {
     private final ClientGateway gateway;
     private final ClientSessionState sessionState;

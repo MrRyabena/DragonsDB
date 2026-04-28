@@ -6,7 +6,19 @@ import client.mvvm.service.LocalizationService;
 import client.mvvm.vm.AuthViewModel;
 import client.mvvm.vm.MainViewModel;
 
-/** Composition root for the JavaFX client layer. */
+/**
+ * Dependency injection container for the GUI layer.
+ *
+ * <p>Creates and provides access to:
+ * <ul>
+ *   <li>RequestClient for server communication
+ *   <li>All ViewModels (Auth, Main with sub-VMs)
+ *   <li>All shared services (Localization, Format, Query)
+ *   <li>State stores (DragonStore, ClientSessionState)
+ * </ul>
+ *
+ * <p>Implements AutoCloseable to ensure RequestClient socket is properly closed.
+ */
 public class GuiClientContext implements AutoCloseable {
     private final RequestClient requestClient;
     private final ClientMvvmContext mvvmContext;

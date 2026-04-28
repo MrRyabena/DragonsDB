@@ -15,13 +15,12 @@ import org.apache.log4j.Logger;
 import dragon.Dragon;
 import storage.PostgresDragonRepository;
 
-/** PostgreSQL-backed collection implementation that keeps an in-memory mirror. */
 /**
  * Database-backed implementation of the application collection API.
  *
- * <p>Delegates storage operations to `PostgresDragonRepository` and ensures
- * that persistence-related behavior (owner checks, transactional updates) is
- * applied when modifying the collection.
+ * <p>Delegates storage operations to PostgresDragonRepository and ensures that
+ * persistence-related behavior (owner checks, transactional updates) is applied
+ * when modifying the collection. Maintains an in-memory cache for performance.
  */
 public class DatabaseCollection extends Collection {
     private static final Logger logger = Logger.getLogger(DatabaseCollection.class);

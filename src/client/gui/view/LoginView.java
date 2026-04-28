@@ -9,7 +9,13 @@ import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.VBox;
 
-/** Compact authorization pane. */
+/**
+ * Compact authorization pane for login and registration.
+ *
+ * <p>Contains input fields for username/password, locale selector, and action buttons.
+ * Uses dark theme (dark blue gradient). Message label displays errors or status.
+ * All bindings to AuthViewModel are done by LoginController.
+ */
 public class LoginView extends VBox {
     private final TextField loginField = new TextField();
     private final PasswordField passwordField = new PasswordField();

@@ -7,7 +7,13 @@ import client.mvvm.model.Credentials;
 import core.Request;
 import core.Response;
 
-/** Adapter that reuses existing UDP RequestClient in MVVM services. */
+/**
+ * Implementation of ClientGateway using UDP-based RequestClient.
+ *
+ * <p>Sends commands to server via socket communication and handles server responses,
+ * including interactive parameter requests. Bridges the UDP protocol layer with
+ * the high-level MVVM service interface.
+ */
 public class RequestClientGateway implements ClientGateway {
     private static final Logger logger = Logger.getLogger(RequestClientGateway.class);
 

@@ -9,9 +9,21 @@ import java.util.stream.Collectors;
 import client.mvvm.model.DragonsFilter;
 import dragon.Dragon;
 
-/** Filtering and sorting helper based on Streams API for table data. */
+/**
+ * Provides filtering and sorting services for dragon collections.
+ *
+ * <p>Uses Stream API to apply query filters and sort dragons based on configurable criteria.
+ * Filters by name, ID, age, weight, and coordinates using case-insensitive string matching.
+ */
 public class DragonsQueryService {
 
+    /**
+     * Applies filter and sort to dragon collection.
+     *
+     * @param source dragons to filter/sort
+     * @param filter filter configuration (query, sortField, ascending)
+     * @return filtered and sorted dragons
+     */
     public List<Dragon> apply(List<Dragon> source, DragonsFilter filter) {
         Objects.requireNonNull(source, "source");
         Objects.requireNonNull(filter, "filter");
@@ -29,6 +41,13 @@ public class DragonsQueryService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Checks if dragon matches search query.
+     *
+     * @param dragon dragon to check
+     * @param query search query (case-insensitive)
+     * @return true if dragon matches
+     */
     private boolean matches(Dragon dragon, String query) {
         if (query.isEmpty()) {
             return true;
@@ -43,6 +62,12 @@ public class DragonsQueryService {
                 || String.valueOf(dragon.getCreationDate()).toLowerCase(Locale.ROOT).contains(query);
     }
 
+    /**
+     * Creates comparator for specified sort field.
+     *
+     * @param field sort field (NAME, AGE, WEIGHT, ID)
+     * @return comparator for that field
+     */
     private Comparator<Dragon> comparatorFor(DragonsFilter.SortField field) {
         return switch (field) {
             case NAME -> Comparator.comparing(Dragon::getName, String.CASE_INSENSITIVE_ORDER);

@@ -6,7 +6,12 @@ import client.mvvm.service.LocalizationService;
 import javafx.application.Application;
 import javafx.stage.Stage;
 
-/** JavaFX launcher for the graphical client layer. */
+/**
+ * JavaFX Application entry point for the graphical client.
+ *
+ * <p>Initializes GuiClientContext with server connection details from environment variables,
+ * sets up the window with login scene, and manages application lifecycle.
+ */
 public class JavaFxClientApp extends Application {
     private GuiClientContext context;
 

@@ -1,7 +1,10 @@
 package dragon;
 
 /**
- * Represents the different types of dragons in the system.
+ * Enumeration of dragon types in the collection.
+ *
+ * <p>Dragons can be classified by their elemental type, affecting their characteristics
+ * and behavior in the system.
  */
 public enum DragonType {
     WATER,

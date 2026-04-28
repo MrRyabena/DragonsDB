@@ -26,7 +26,13 @@ import javafx.scene.control.TextInputDialog;
 import javafx.scene.layout.GridPane;
 import dragon.DragonType;
 
-/** Wires the main screen to the MVVM main view model. */
+/**
+ * Wires the main application screen to the MVVM layer.
+ *
+ * <p>Binds MainView controls to MainViewModel, handles user actions (commands, filters,
+ * CRUD operations), manages async task execution, and displays results/errors.
+ * Also handles interactive parameter requests and locale switching.
+ */
 public class MainController {
     private final MainView root = new MainView();
     private final GuiClientContext context;

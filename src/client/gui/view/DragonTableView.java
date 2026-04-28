@@ -8,7 +8,12 @@ import javafx.collections.ObservableList;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 
-/** Table with a column per dragon field. */
+/**
+ * TableView subclass for displaying dragons with columns for ID, Name, Type, Age, and Weight.
+ *
+ * <p>Columns are automatically configured with cell value factories. Data binding to
+ * DragonsTableViewModel's visible rows is handled by MainController.
+ */
 public class DragonTableView extends TableView<Dragon> {
     private final ObservableList<Dragon> items = FXCollections.observableArrayList();
 

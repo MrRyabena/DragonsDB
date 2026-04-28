@@ -6,7 +6,12 @@ import javafx.stage.Stage;
 import client.gui.controller.LoginController;
 import client.gui.controller.MainController;
 
-/** Simple scene navigator between auth and main screens. */
+/**
+ * Manages scene switching between login and main screens.
+ *
+ * <p>Responsible for creating controllers and scenes, setting stage properties,
+ * and navigating between authentication and application screens.
+ */
 public class SceneManager {
     private final Stage stage;
     private final GuiClientContext context;

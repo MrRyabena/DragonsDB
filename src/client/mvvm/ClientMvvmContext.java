@@ -11,7 +11,18 @@ import client.mvvm.state.DragonStore;
 import client.mvvm.vm.AuthViewModel;
 import client.mvvm.vm.MainViewModel;
 
-/** Composition root for MVVM client classes inside package client. */
+/**
+ * Dependency injection container for MVVM layer classes.
+ *
+ * <p>Creates and provides centralized access to:
+ * <ul>
+ *   <li>State stores (ClientSessionState, DragonStore)
+ *   <li>Services (LocalizationService, ClientGateway, ClientGateway)
+ *   <li>ViewModels (AuthViewModel, MainViewModel with child VMs)
+ * </ul>
+ *
+ * <p>All instances are singletons created once per client session.
+ */
 public class ClientMvvmContext {
     private final LocalizationService localizationService;
     private final ClientSessionState sessionState;

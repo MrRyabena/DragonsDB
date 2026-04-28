@@ -5,7 +5,12 @@ import javafx.animation.ScaleTransition;
 import javafx.scene.Node;
 import javafx.util.Duration;
 
-/** Small reusable animation helpers for the graphical client. */
+/**
+ * Reusable animation utilities for the graphical client.
+ *
+ * <p>Provides predefined animations: fade-in with scale-up, pulse effect, and other
+ * common visual transitions for UI elements.
+ */
 public final class DragonAnimations {
     private DragonAnimations() {}
 

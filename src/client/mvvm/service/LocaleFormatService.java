@@ -6,7 +6,12 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.FormatStyle;
 import java.util.Locale;
 
-/** Locale-aware formatter for numbers and date-time values used by views. */
+/**
+ * Provides locale-aware formatting for numbers and dates.
+ *
+ * <p>Wraps NumberFormat and DateTimeFormatter to ensure consistent formatting
+ * across the application based on the active locale.
+ */
 public class LocaleFormatService {
 
     public String formatNumber(Number value, Locale locale) {

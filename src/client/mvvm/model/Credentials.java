@@ -1,6 +1,11 @@
 package client.mvvm.model;
 
-/** Immutable credentials used by the MVVM service layer. */
+/**
+ * Immutable login credentials record.
+ *
+ * <p>Encapsulates username and password for authentication. Empty strings are used
+ * as defaults for null values to ensure non-null fields.
+ */
 public record Credentials(String login, String password) {
     public Credentials {
         if (login == null) {
@@ -11,6 +16,11 @@ public record Credentials(String login, String password) {
         }
     }
 
+    /**
+     * Checks if credentials are empty.
+     *
+     * @return true if login or password is blank
+     */
     public boolean isEmpty() {
         return login.isBlank() || password.isBlank();
     }
