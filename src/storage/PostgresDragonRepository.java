@@ -243,6 +243,17 @@ public final class PostgresDragonRepository {
         return result;
     }
 
+    /**
+     * Retrieves owner logins for specified dragon IDs.
+     *
+     * <p>Returns a list of owner logins in the same order as input IDs. For dragons not found,
+     * an empty string is returned at the corresponding index. This ensures index alignment
+     * for parallel array structures used in protocol responses.
+     *
+     * @param ids list of dragon IDs to look up
+     * @return list of owner logins (empty string if dragon not found), index-aligned with ids
+     * @throws SQLException if database query fails
+     */
     public static List<String> findOwnerLogins(List<Long> ids) throws SQLException {
         if (ids == null || ids.isEmpty()) {
             return List.of();

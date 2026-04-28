@@ -10,6 +10,12 @@ import org.apache.log4j.Logger;
 import dragon.view.JsonView;
 
 /** Storage adapter backed by PostgreSQL. */
+/**
+ * Storage implementation that persists collection dumps to the application database.
+ *
+ * <p>Used for saving and loading the entire collection state when operating in
+ * server mode with a backing database, providing durable persistence.
+ */
 public class DatabaseStorage implements Storage {
     private static final Logger logger = Logger.getLogger(DatabaseStorage.class);
 

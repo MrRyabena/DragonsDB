@@ -11,6 +11,13 @@ import org.apache.log4j.Logger;
 
 import core.Defaults;
 
+/**
+ * Manages a single client network connection, reading and supplying request contexts.
+ *
+ * <p>Implements `Supplier<Optional<ServerContext>>` so it can be polled by server threads
+ * to obtain the next `ServerContext` for processing. Also implements `AutoCloseable` to
+ * ensure network resources are released when the connection is terminated.
+ */
 public class ConnectionHandler implements Supplier<Optional<ServerContext>>, AutoCloseable {
 
     public ConnectionHandler() {

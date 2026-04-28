@@ -32,6 +32,14 @@ import ui.Commands;
  * The server continues this dialog until all parameters are collected, then executes the command
  * and returns the result.
  */
+/**
+ * Orchestrates execution of text-based commands against the application collection.
+ *
+ * <p>Responsible for parsing command arguments, collecting required parameters, enforcing
+ * authentication/authorization where applicable, executing collection operations and
+ * preparing textual output and result payloads (including owner login arrays when
+ * requested via SHOW_WITH_OWNERS).
+ */
 public class CommandsHandler {
     public CommandsHandler(
             API collection,
@@ -499,6 +507,7 @@ public class CommandsHandler {
                 break;
 
             case SHOW_WITH_OWNERS:
+                // Fetch all dragons from collection
                 resultDragons.addAll(collection.getStream().collect(Collectors.toList()));
                 if (resultDragons.isEmpty()) {
                     output.append("Collection is empty.\n");
@@ -506,10 +515,12 @@ public class CommandsHandler {
                     output.append("Dragons in collection with owners:\n");
                 }
 
+                // Populate owner logins in index-aligned manner
                 if (collection instanceof DatabaseCollection) {
                     List<Long> ids = resultDragons.stream().map(Dragon::getId).collect(Collectors.toList());
                     resultOwners.addAll(PostgresDragonRepository.findOwnerLogins(ids));
                 } else {
+                    // Fallback: empty logins for non-database collections
                     for (int i = 0; i < resultDragons.size(); i++) {
                         resultOwners.add("");
                     }

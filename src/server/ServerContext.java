@@ -6,6 +6,13 @@ import java.nio.ByteBuffer;
 import core.Request;
 import core.Response;
 
+/**
+ * Lightweight request/response context carried through server pipeline stages.
+ *
+ * <p>Holds incoming client request, computed response, session and connection metadata.
+ * Instances are created per incoming client request and passed between `RequestReader`,
+ * `CommandsHandler`, `ResponsePacker` and `ResponseSender` components.
+ */
 public class ServerContext {
     public SocketAddress clientAddress;
     public ByteBuffer requestData;

@@ -15,6 +15,13 @@ import storage.FileCommandLogger;
 import storage.RecoveryManager;
 import storage.TransactionManager;
 
+/**
+ * Entry point for the server process: accepts client connections and schedules
+ * request processing workers.
+ *
+ * <p>Initializes networking, thread pools and the collection storage backend, then
+ * enters a loop accepting incoming client connections.
+ */
 public class Server {
     private static final Logger logger = Logger.getLogger(Server.class);
 

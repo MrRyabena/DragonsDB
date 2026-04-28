@@ -37,14 +37,35 @@ public class MainViewModel extends BaseViewModel {
         return visualizationViewModel;
     }
 
+    /**
+     * Retrieves current authenticated user login.
+     *
+     * @return user login (empty string if not authenticated)
+     */
     public String getCurrentUser() {
         return sessionState.getCurrentUser();
     }
 
+    /**
+     * Refreshes collection with full data including owner information.
+     *
+     * @return gateway result with dragons and owner logins
+     */
     public GatewayResult refresh() {
         return executeCommand("show_with_owners", null);
     }
 
+    /**
+     * Executes a command with optional parameters.
+     *
+     * <p>Normalizes "show" command to "show_with_owners" to ensure owner data is always fetched.
+     * Updates dragon store on success or sets error message on failure. Sets busy state during
+     * execution.
+     *
+     * @param command command name
+     * @param parameterProvider provider for interactive parameter collection (may be null)
+     * @return gateway result with response status and optional dragons/owner data
+     */
     public GatewayResult executeCommand(String command, ParameterValueProvider parameterProvider) {
         clearError();
         setBusy(true);

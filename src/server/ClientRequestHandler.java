@@ -6,6 +6,12 @@ import org.apache.log4j.Logger;
  * Handles processing of a single client request in a separate thread.
  * Performs all stages: reading request, authentication, command handling, packing response, sending back.
  */
+/**
+ * Worker that processes a single client request lifecycle on a thread.
+ *
+ * <p>Coordinates pipeline components (RequestReader, CommandsHandler, ResponsePacker,
+ * ResponseSender) to process an incoming request and produce a reply.
+ */
 public class ClientRequestHandler implements Runnable {
     private static final Logger logger = Logger.getLogger(ClientRequestHandler.class);
 

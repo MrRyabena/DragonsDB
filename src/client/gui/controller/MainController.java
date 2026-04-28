@@ -49,6 +49,12 @@ public class MainController {
         return root;
     }
 
+    /**
+     * Asynchronously refreshes dragon collection with full data including owner information.
+     *
+     * <p>Fetches fresh collection using "show_with_owners" command which returns dragons
+     * and their corresponding owner logins for visualization and ownership tracking.
+     */
     public void refreshAsync() {
         executeCommandAsync("show_with_owners", createParameterProvider(), false);
     }

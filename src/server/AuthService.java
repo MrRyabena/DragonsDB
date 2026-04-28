@@ -17,6 +17,13 @@ import storage.PostgresSupport;
  * PostgreSQL-backed authentication service.
  * <p>Passwords are stored as SHA-384 hashes.
  */
+/**
+ * Authentication service responsible for validating credentials and managing user
+ * registration and lookup.
+ *
+ * <p>Provides helper methods used by request handlers to authenticate actions that
+ * require an owner login and to register new users.
+ */
 public class AuthService {
     private static final Logger logger = Logger.getLogger(AuthService.class);
     private static final String USERS_TABLE = "users";

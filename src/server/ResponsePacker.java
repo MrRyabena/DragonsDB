@@ -8,6 +8,13 @@ import core.WireFrame;
 /**
  * Serializes {@link core.Response} into a binary wire frame before UDP sending.
  */
+/**
+ * Serializes `Response` objects into transport-ready byte arrays and attaches them to
+ * the `ServerContext` for sending back to the client.
+ *
+ * <p>Responsible for converting in-memory response structures into the wire format
+ * expected by clients and ensuring any session identifiers or metadata are preserved.
+ */
 public class ResponsePacker implements Consumer<ServerContext> {
     public ResponsePacker() {}
 

@@ -11,6 +11,12 @@ import core.WireFrame;
  * Deserializes incoming request data from the client.
  * Reads the command line and optionally script content (for execute_script).
  */
+/**
+ * Reads incoming bytes from transport and deserializes them into `Request` objects.
+ *
+ * <p>Acts as a pipeline consumer that fills `ServerContext.request` and updates
+ * context state for downstream processing (commands execution and response packing).
+ */
 public class RequestReader implements Consumer<ServerContext> {
 
     public RequestReader() {

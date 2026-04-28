@@ -1,5 +1,11 @@
 package collection;
 
+/**
+ * Internal API command codes for audit logging and transaction tracking.
+ * 
+ * <p>Mirrors the Commands enum but used server-side for CommandLogger to record
+ * which commands were executed during the session.
+ */
 public enum ApiCommand {
     HELP,
     INFO,

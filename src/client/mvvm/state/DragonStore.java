@@ -26,14 +26,34 @@ public class DragonStore {
         return selectedDragon;
     }
 
+    /**
+     * Retrieves the owner login for a specific dragon.
+     *
+     * @param dragonId the ID of the dragon
+     * @return owner login string (null if no owner information available)
+     */
     public String getOwnerLogin(long dragonId) {
         return ownerByDragonId.get(dragonId);
     }
 
+    /**
+     * Replaces all dragons without updating owner information.
+     *
+     * @param newDragons new collection of dragons
+     */
     public void replaceAll(List<Dragon> newDragons) {
         replaceAll(newDragons, null);
     }
 
+    /**
+     * Replaces all dragons and updates owner information.
+     *
+     * <p>The ownerLogins list must be index-aligned with newDragons:
+     * ownerLogins.get(i) corresponds to newDragons.get(i).getId().
+     *
+     * @param newDragons new collection of dragons
+     * @param ownerLogins owner logins corresponding to each dragon (index-aligned), or null if not available
+     */
     public void replaceAll(List<Dragon> newDragons, List<String> ownerLogins) {
         List<Dragon> old = this.dragons;
         this.dragons = new ArrayList<>(newDragons);

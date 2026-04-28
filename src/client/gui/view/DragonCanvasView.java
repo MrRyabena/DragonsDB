@@ -19,7 +19,24 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.TextAlignment;
 import javafx.util.Duration;
 
-/** Canvas-based visualization of dragons with simple animations. */
+/**
+ * Canvas-based visualization of dragons with smooth appearance animations.
+ * 
+ * <p>Renders dragons as circles on a 2D canvas with automatic coordinate scaling to fit viewport.
+ * Tracks newly added dragons and displays smooth fade-in + scale-up animations over approximately
+ * 420 milliseconds. Dragons are colored by owner identity, with current user's dragons shown with
+ * brighter borders.
+ * 
+ * <p>Animation System:
+ * <ul>
+ *   <li>New dragons detected via ID comparison between previous and current sets</li>
+ *   <li>Appearance time recorded using System.nanoTime() for precise timing</li>
+ *   <li>AnimationTimer drives continuous redraw while animations are active</li>
+ *   <li>Cubic easing applied for smooth appearance progression (1 - (1-t)³)</li>
+ *   <li>Scale: 60% → 100%, Alpha: 20% → 100% over duration</li>
+ *   <li>Automatically stops timer when all dragons reach full appearance</li>
+ * </ul>
+ */
 public class DragonCanvasView extends Canvas {
     private static final long APPEAR_DURATION_NANOS = 420_000_000L;
 
@@ -42,11 +59,25 @@ public class DragonCanvasView extends Canvas {
                 }
             };
 
+    /**
+     * Constructs a dragon canvas with specified dimensions.
+     *
+     * @param width canvas width in pixels
+     * @param height canvas height in pixels
+     */
     public DragonCanvasView(double width, double height) {
         super(width, height);
         setStyle("-fx-background-color: #0f172a;");
     }
 
+    /**
+     * Updates drawable dragons and initiates appearance animations for new dragons.
+     *
+     * <p>Detects newly added dragons by comparing IDs against previous set. Records appearance
+     * start times and begins animation timer if any new dragons detected.
+     *
+     * @param drawables list of dragons to display (may be null, treated as empty)
+     */
     public void setDrawables(List<DrawableDragon> drawables) {
         List<DrawableDragon> next = drawables == null ? List.of() : drawables;
         Set<Long> previousIds = this.drawables.stream().map(d -> d.dragon().getId()).collect(java.util.stream.Collectors.toSet());
@@ -65,6 +96,12 @@ public class DragonCanvasView extends Canvas {
         redraw();
     }
 
+    /**
+     * Plays fade-in and scale-up refresh animations on canvas.
+     *
+     * <p>Fades from 75% to 100% opacity and scales from 98% to 100% over 180ms.
+     * Used to provide visual feedback when collection is refreshed.
+     */
     public void animateRefresh() {
         FadeTransition fade = new FadeTransition(Duration.millis(180), this);
         fade.setFromValue(0.75);
@@ -79,6 +116,14 @@ public class DragonCanvasView extends Canvas {
         scale.play();
     }
 
+    /**
+     * Redraws all dragons with current appearance progress and coordinate scaling.
+     *
+     * <p>Applies auto-scaling to fit all dragons in viewport with padding. Calculates
+     * appearance progress for each dragon and applies scale + alpha interpolation.
+     * Current user's dragons rendered with bright borders (2.4px).
+     * Dragon labels shown as white text (ID).
+     */
     public void redraw() {
         GraphicsContext gc = getGraphicsContext2D();
         double canvasWidth = getWidth();
@@ -146,6 +191,16 @@ public class DragonCanvasView extends Canvas {
         rendered = newRendered;
     }
 
+    /**
+     * Calculates appearance progress for a specific dragon.
+     *
+     * <p>Returns smooth interpolation from 0.0 (fully hidden) to 1.0 (fully visible)
+     * using cubic easing function (1 - (1-t)³). Dragons not in appearance map
+     * return 1.0 (fully visible).
+     *
+     * @param dragonId the dragon to check
+     * @return appearance progress value 0.0-1.0 with cubic easing applied
+     */
     private double appearanceProgress(long dragonId) {
         Long startedAt = appearingSinceNanos.get(dragonId);
         if (startedAt == null) {
@@ -162,6 +217,16 @@ public class DragonCanvasView extends Canvas {
         return 1.0 - Math.pow(1.0 - t, 3.0);
     }
 
+    /**
+     * Finds drawable dragon at specified screen coordinates.
+     *
+     * <p>Uses hit detection based on rendered dragon radius. Returns empty Optional
+     * if no dragon found at coordinates.
+     *
+     * @param x screen x coordinate
+     * @param y screen y coordinate
+     * @return optional containing drawable dragon if found at coordinates
+     */
     public Optional<DrawableDragon> findAt(double x, double y) {
         for (RenderedDragon dragon : rendered) {
             double dx = x - dragon.screenX;

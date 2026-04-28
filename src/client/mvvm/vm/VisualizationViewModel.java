@@ -69,10 +69,27 @@ public class VisualizationViewModel extends BaseViewModel implements PropertyCha
         notifyViewChanged("drawableDragons", null, drawableDragons);
     }
 
+    /**
+     * Normalizes a login string for consistent comparison.
+     *
+     * <p>Applies trim and lowercase normalization to enable case-insensitive matching.
+     *
+     * @param login login string (may be null)
+     * @return normalized login (empty string if null)
+     */
     private String normalizeLogin(String login) {
         return login == null ? "" : login.trim().toLowerCase(Locale.ROOT);
     }
 
+    /**
+     * Generates a stable color based on owner login.
+     *
+     * <p>Uses hash function to produce consistent RGB values from owner identity,
+     * ensuring same owner always gets same hue across sessions.
+     *
+     * @param ownerLogin owner login string
+     * @return hex color string in format "#RRGGBB"
+     */
     private String colorByOwner(String ownerLogin) {
         int hash = ownerLogin.hashCode();
         int r = 72 + Math.floorMod(hash, 152);

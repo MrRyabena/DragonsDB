@@ -9,6 +9,12 @@ import org.apache.log4j.Logger;
 /**
  * Sends a pre-packed response datagram to the client endpoint from {@link ServerContext}.
  */
+/**
+ * Sends packed response bytes back to the client over the network.
+ *
+ * <p>Consumes `ServerContext` instances containing serialized response payloads and
+ * writes them to the underlying transport associated with the client connection.
+ */
 public class ResponseSender implements Consumer<ServerContext> {
 
     public ResponseSender(DatagramChannel channel) {
